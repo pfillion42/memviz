@@ -104,7 +104,7 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
         .sort((a, b) => b.similarity - a.similarity);
 
       res.json({ data: results });
-    } catch (err) {
+    } catch {
       res.status(500).json({ error: 'Erreur lors de la recherche vectorielle' });
     }
   });

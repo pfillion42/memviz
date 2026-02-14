@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 // Mock react-force-graph-2d (Canvas non supporte dans JSDOM)
 import { forwardRef } from 'react';
 vi.mock('react-force-graph-2d', () => ({
-  default: forwardRef((_props: unknown, _ref: unknown) => <div data-testid="force-graph-mock" />),
+  default: forwardRef<unknown, Record<string, unknown>>(function MockForceGraph() { return <div data-testid="force-graph-mock" />; }),
 }));
 
 import { GraphView } from '../src/pages/GraphView';

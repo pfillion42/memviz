@@ -7,7 +7,7 @@ import { createMemoriesRouter } from '../src/routes/memories';
 import type { EmbedFn } from '../src/embedder';
 
 // Mock embedder qui retourne un vecteur deterministe base sur le texte
-const mockEmbedFn: EmbedFn = async (_text: string) => {
+const mockEmbedFn: EmbedFn = async () => {
   const vec = new Float32Array(384);
   for (let i = 0; i < 384; i++) {
     vec[i] = Math.sin(i) * 0.1;
