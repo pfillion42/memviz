@@ -1,0 +1,68 @@
+# Hooks projet Express + React/Vite/TypeScript (monorepo)
+
+[[hooks]]
+event = "PostToolUse"
+matcher = "Edit"
+
+[hooks.command]
+shell = "bash"
+command = """
+FILE="$CLAUDE_TOOL_ARG_FILE_PATH"
+if [[ "$FILE" == *.ts || "$FILE" == *.tsx || "$FILE" == *.jsx ]]; then
+  if [[ "$FILE" == */server/* ]]; then
+    ROOT="server"
+  elif [[ "$FILE" == */client/* ]]; then
+    ROOT="client"
+  else
+    ROOT="."
+  fi
+  if [ -f "$ROOT/node_modules/.bin/eslint" ]; then
+    npx --prefix "$ROOT" eslint --fix "$FILE" 2>/dev/null || true
+  fi
+fi
+"""
+
+[[hooks]]
+event = "PostToolUse"
+matcher = "Edit"
+
+[hooks.command]
+shell = "bash"
+command = """
+FILE="$CLAUDE_TOOL_ARG_FILE_PATH"
+if [[ "$FILE" == *.ts || "$FILE" == *.tsx ]]; then
+  if [[ "$FILE" == */server/* ]] && [ -f "server/tsconfig.json" ]; then
+    npx --prefix server tsc --noEmit 2>/dev/null || true
+  elif [[ "$FILE" == */client/* ]] && [ -f "client/tsconfig.json" ]; then
+    npx --prefix client tsc --noEmit 2>/dev/null || true
+  fi
+fi
+"""
+
+[[hooks]]
+event = "PreToolUse"
+matcher = "Bash"
+
+[hooks.command]
+shell = "bash"
+command = """
+CMD="$CLAUDE_TOOL_ARG_COMMAND"
+if [[ "$CMD" == git\ commit* ]]; then
+  FAILED=0
+  if [ -f "server/package.json" ]; then
+    (cd server && npx vitest run 2>&1) || FAILED=1
+  fi
+  if [ -f "client/package.json" ]; then
+    (cd client && npx vitest run 2>&1) || FAILED=1
+  fi
+  if [ -f "server/tsconfig.json" ]; then
+    (cd server && npx tsc --noEmit 2>&1) || FAILED=1
+  fi
+  if [ -f "client/tsconfig.json" ]; then
+    (cd client && npx tsc --noEmit 2>&1) || FAILED=1
+  fi
+  if [ $FAILED -ne 0 ]; then
+    exit 1
+  fi
+fi
+"""
