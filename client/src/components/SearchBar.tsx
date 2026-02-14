@@ -32,11 +32,22 @@ export function SearchBar({ value, onChange, placeholder = 'Rechercher...', debo
       aria-label="Recherche"
       style={{
         width: '100%',
-        padding: '8px 12px',
+        padding: '10px 14px',
         fontSize: '14px',
-        border: '1px solid #d1d5db',
-        borderRadius: '6px',
+        backgroundColor: 'var(--bg-elevated)',
+        color: 'var(--text-primary)',
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-md)',
         outline: 'none',
+        transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
+      }}
+      onFocus={e => {
+        e.target.style.borderColor = 'var(--accent-primary)';
+        e.target.style.boxShadow = '0 0 0 3px var(--accent-glow)';
+      }}
+      onBlur={e => {
+        e.target.style.borderColor = 'var(--border-default)';
+        e.target.style.boxShadow = 'none';
       }}
     />
   );

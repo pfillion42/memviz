@@ -4,6 +4,7 @@ import { MemoryList } from './pages/MemoryList';
 import { MemoryDetail } from './pages/MemoryDetail';
 import { Dashboard } from './pages/Dashboard';
 import { GraphView } from './pages/GraphView';
+import { Logo } from './components/Logo';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -14,29 +15,52 @@ const queryClient = new QueryClient({
   },
 });
 
-const navStyle = {
-  padding: '6px 14px',
-  textDecoration: 'none' as const,
-  color: '#6b7280',
-  borderRadius: '6px',
-  fontSize: '14px',
+const navStyle: React.CSSProperties = {
+  padding: '7px 14px',
+  textDecoration: 'none',
+  color: 'var(--text-muted)',
+  borderRadius: 'var(--radius-sm)',
+  fontSize: '13px',
+  fontWeight: 500,
+  letterSpacing: '0.01em',
+  transition: 'all var(--transition-fast)',
 };
 
-const activeStyle = {
+const activeStyle: React.CSSProperties = {
   ...navStyle,
-  color: '#1d4ed8',
-  backgroundColor: '#eff6ff',
-  fontWeight: 600 as const,
+  color: 'var(--text-primary)',
+  backgroundColor: 'var(--bg-hover)',
 };
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '16px 24px' }}>
-          <header style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '24px', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
-            <h1 style={{ fontSize: '20px', margin: 0 }}>memviz</h1>
-            <nav style={{ display: 'flex', gap: '4px' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
+          <header style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            padding: '16px 0',
+            borderBottom: '1px solid var(--border-subtle)',
+            marginBottom: '24px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Logo size={30} />
+              <h1 style={{
+                fontSize: '18px',
+                fontWeight: 700,
+                margin: 0,
+                background: 'var(--accent-gradient)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: '-0.02em',
+              }}>
+                memviz
+              </h1>
+            </div>
+
+            <nav style={{ display: 'flex', gap: '2px', marginLeft: '8px' }}>
               <NavLink to="/" end style={({ isActive }) => isActive ? activeStyle : navStyle}>
                 Memoires
               </NavLink>
@@ -47,6 +71,10 @@ function App() {
                 Graphe
               </NavLink>
             </nav>
+
+            <div style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-muted)' }}>
+              Memory Explorer
+            </div>
           </header>
 
           <main>

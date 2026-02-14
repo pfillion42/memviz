@@ -5,28 +5,52 @@ interface PaginationProps {
   onPageChange: (offset: number) => void;
 }
 
+const btnStyle: React.CSSProperties = {
+  padding: '6px 14px',
+  fontSize: '13px',
+  fontWeight: 500,
+  backgroundColor: 'var(--bg-elevated)',
+  color: 'var(--text-secondary)',
+  border: '1px solid var(--border-default)',
+  borderRadius: 'var(--radius-sm)',
+  cursor: 'pointer',
+  transition: 'all var(--transition-fast)',
+};
+
+const btnDisabled: React.CSSProperties = {
+  ...btnStyle,
+  opacity: 0.4,
+  cursor: 'not-allowed',
+};
+
 export function Pagination({ total, limit, offset, onPageChange }: PaginationProps) {
   const currentPage = Math.floor(offset / limit) + 1;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <nav aria-label="Pagination" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
+    <nav aria-label="Pagination" style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '16px',
+      marginTop: '20px',
+    }}>
       <button
         disabled={currentPage <= 1}
         onClick={() => onPageChange(Math.max(0, offset - limit))}
         aria-label="Page precedente"
-        style={{ padding: '4px 12px', cursor: currentPage <= 1 ? 'not-allowed' : 'pointer' }}
+        style={currentPage <= 1 ? btnDisabled : btnStyle}
       >
         Precedent
       </button>
-      <span>
-        Page {currentPage} / {totalPages}
+      <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+        Page <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{currentPage}</span> / {totalPages}
       </span>
       <button
         disabled={currentPage >= totalPages}
         onClick={() => onPageChange(offset + limit)}
         aria-label="Page suivante"
-        style={{ padding: '4px 12px', cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer' }}
+        style={currentPage >= totalPages ? btnDisabled : btnStyle}
       >
         Suivant
       </button>
