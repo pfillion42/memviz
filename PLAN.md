@@ -36,12 +36,21 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Backend : GET /api/memories/duplicates?threshold=0.85, Union-Find clustering, KNN vec0
 - Frontend : Page /duplicates, slider seuil (0.7-1.0), groupes avec apercu, actions Garder/Ignorer
 
+## Sprint 6 - Timeline et qualite
+
+### 6.1 Vue timeline - COMPLETE
+- Backend : GET /api/memories/timeline (groupement par jour, filtres type/tags)
+- Frontend : Page /timeline avec axe chronologique vertical, groupes par date, badges et liens
+
+### 6.2 Score de qualite - COMPLETE
+- Backend : POST /api/memories/:hash/rate (rating +1/-1, quality_score +/-0.1, clamp 0-1)
+- Frontend : QualityVoter (thumbs up/down, animation flash, mode compact), integre dans MemoryDetail et MemoryList
+
 ## Backlog - Fonctionnalites futures
 
 ### Exploration et comprehension
 - [ ] Projection 2D des embeddings (t-SNE/UMAP) - vue espace vectoriel complet
 - [ ] Clustering automatique - grouper par proximite semantique
-- [ ] Vue timeline - chronologie visuelle des memoires
 
 ### Navigation et UX
 - [ ] Raccourcis clavier (j/k navigation, / recherche, e editer)
@@ -51,7 +60,6 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 ### Gestion et maintenance
 - [ ] Gestion globale des tags - renommer, fusionner, supprimer un tag partout
 - [ ] Memoires obsoletes - identifier et suggerer nettoyage (jamais accedees, anciennes)
-- [ ] Score de qualite - interface vote thumbs up/down, tri par qualite
 
 ### Synchronisation et integration
 - [ ] Live reload - surveiller la DB SQLite, mise a jour temps reel
@@ -71,7 +79,7 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Embedding : all-MiniLM-L6-v2 (384 dims, cosine distance)
 - Injection de dependance : `createMemoriesRouter(db)` pour faciliter les tests
 - Frontend : React Query + React Router, hooks custom, theme sombre via CSS custom properties
-- Navigation : / (Dashboard), /memories (MemoryList), /memories/:hash (MemoryDetail), /duplicates (Duplicates), /graph (GraphView)
+- Navigation : / (Dashboard), /timeline (Timeline), /memories (MemoryList), /memories/:hash (MemoryDetail), /duplicates (Duplicates), /graph (GraphView)
 - Embedder : @huggingface/transformers (all-MiniLM-L6-v2), injection de dependance pour tests
 - Graphe : react-force-graph-2d pour la visualisation force-directed
 - Mode read/write : configurable via MEMORY_DB_READONLY env var
@@ -88,3 +96,4 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 | 2026-02-14 | Sprint 5.1 filtres avances | FilterPanel, query params backend, persistence URL, 100 tests verts |
 | 2026-02-14 | Sprint 5.2 operations en masse | Bulk delete/tag/type, BulkActionBar, Dashboard homepage, 126 tests verts |
 | 2026-02-14 | Sprint 5.3 detection doublons | Endpoint Union-Find, page /duplicates, slider seuil, 140 tests verts |
+| 2026-02-14 | Sprint 6 timeline + qualite | Timeline chronologique, QualityVoter thumbs up/down, 171 tests verts |

@@ -1,5 +1,27 @@
 # Journal de Developpement
 
+## 2026-02-14 - Sprint 6 : Timeline et score de qualite
+
+### Sprint 6.1 - Vue timeline
+- **Backend** : `GET /api/memories/timeline` - groupement par jour via `substr(created_at_iso, 0, 10)`, filtres type/tags optionnels
+- **Frontend** : Page `/timeline` avec axe chronologique vertical, groupes par date, badges type, TagBadge, liens vers detail
+- **Hook** : useTimeline() avec React Query
+- **Navigation** : lien "Timeline" entre Dashboard et Memoires
+
+### Sprint 6.2 - Score de qualite
+- **Backend** : `POST /api/memories/:hash/rate` - rating +1/-1, modifie quality_score dans metadata JSON (+/-0.1, clamp 0-1, arrondi 10 decimales)
+- **Frontend** : QualityVoter (thumbs up/down, affichage score, animation flash couleur, mode compact)
+- **Integration** : remplace QualityIndicator dans MemoryDetail, nouvelle colonne qualite dans MemoryList
+- **Hook** : useRateMemory dans useMutations.ts
+
+### Resultats
+- 15 nouveaux tests backend (8 timeline + 9 rate, certains couvrent les 2) = 111 serveur
+- 13 nouveaux tests frontend (8 timeline + 5 quality voter) = 60 client
+- **171 tests total**, tous verts, lint propre
+- Equipe 2 agents paralleles (backend-dev + frontend-dev)
+
+---
+
 ## 2026-02-14 - Sprint 5.3 : Detection de doublons
 
 ### Backend

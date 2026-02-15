@@ -9,6 +9,7 @@ import { FilterPanel } from '../components/FilterPanel';
 import { TagBadge } from '../components/TagBadge';
 import { Pagination } from '../components/Pagination';
 import { BulkActionBar } from '../components/BulkActionBar';
+import { QualityVoter } from '../components/QualityVoter';
 import type { Memory, MemoryFilters } from '../types';
 
 const PAGE_SIZE = 20;
@@ -228,6 +229,7 @@ export function MemoryList() {
                 <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contenu</th>
                 <th style={{ padding: '12px 16px', width: '90px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
                 <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tags</th>
+                <th style={{ padding: '12px 16px', width: '110px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Qualite</th>
                 {showSimilarity && <th style={{ padding: '12px 16px', width: '80px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</th>}
                 <th style={{ padding: '12px 16px', width: '140px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
               </tr>
@@ -280,6 +282,13 @@ export function MemoryList() {
                         <TagBadge key={tag} tag={tag} />
                       ))}
                     </div>
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <QualityVoter
+                      hash={m.content_hash}
+                      score={(m.metadata as Record<string, unknown> | null)?.quality_score as number | undefined}
+                      compact
+                    />
                   </td>
                   {showSimilarity && (
                     <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: 600, color: 'var(--success)' }}>

@@ -83,3 +83,14 @@ export interface DuplicatesResponse {
   groups: DuplicateGroup[];
   total_groups: number;
 }
+
+export interface TimelineGroup {
+  date: string;
+  count: number;
+  memories: Memory[];
+}
+
+export interface TimelineResponse {
+  groups: TimelineGroup[];
+  total: number;
+}

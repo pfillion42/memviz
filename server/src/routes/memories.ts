@@ -510,6 +510,114 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     res.json({ imported, skipped, total: memories.length });
   });
 
+  // GET /api/memories/timeline - memoires groupees par jour
+  router.get('/memories/timeline', (req: Request, res: Response) => {
+    const typeFilter = (req.query.type as string)?.trim() || '';
+    const tagsFilter = (req.query.tags as string)?.trim() || '';
+
+    const whereClauses: string[] = ['deleted_at IS NULL'];
+    const whereParams: unknown[] = [];
+
+    if (typeFilter) {
+      whereClauses.push('memory_type = ?');
+      whereParams.push(typeFilter);
+    }
+
+    if (tagsFilter) {
+      const tags = tagsFilter.split(',').map(t => t.trim()).filter(Boolean);
+      if (tags.length > 0) {
+        const tagConditions = tags.map(() => 'tags LIKE ?').join(' OR ');
+        whereClauses.push(`(${tagConditions})`);
+        for (const tag of tags) {
+          whereParams.push(`%${tag}%`);
+        }
+      }
+    }
+
+    const whereClause = whereClauses.join(' AND ');
+
+    const rows = db.prepare(`
+      SELECT * FROM memories
+      WHERE ${whereClause}
+      ORDER BY created_at DESC
+    `).all(...whereParams) as MemoryRow[];
+
+    // Grouper par date (substr de created_at_iso = YYYY-MM-DD)
+    const groupMap = new Map<string, MemoryRow[]>();
+    for (const row of rows) {
+      const date = row.created_at_iso.substring(0, 10);
+      if (!groupMap.has(date)) {
+        groupMap.set(date, []);
+      }
+      groupMap.get(date)!.push(row);
+    }
+
+    // Construire la reponse triee par date decroissante
+    const groups = Array.from(groupMap.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([date, memories]) => ({
+        date,
+        count: memories.length,
+        memories: memories.map(parseMemory),
+      }));
+
+    res.json({
+      groups,
+      total: rows.length,
+    });
+  });
+
+  // POST /api/memories/:hash/rate - vote qualite thumbs up/down
+  router.post('/memories/:hash/rate', (req: Request, res: Response) => {
+    const { hash } = req.params;
+    const { rating } = req.body;
+
+    if (rating !== 1 && rating !== -1) {
+      res.status(400).json({ error: 'Le champ rating doit etre 1 ou -1' });
+      return;
+    }
+
+    const row = db.prepare(
+      'SELECT * FROM memories WHERE content_hash = ? AND deleted_at IS NULL'
+    ).get(hash) as MemoryRow | undefined;
+
+    if (!row) {
+      res.status(404).json({ error: 'Memoire non trouvee' });
+      return;
+    }
+
+    // Extraire quality_score depuis metadata
+    let metadata: Record<string, unknown> = {};
+    try {
+      if (typeof row.metadata === 'string') {
+        metadata = JSON.parse(row.metadata);
+      }
+    } catch {
+      // metadata invalide, initialiser a vide
+    }
+
+    const currentScore = typeof metadata.quality_score === 'number' ? metadata.quality_score : 0.5;
+    const delta = rating === 1 ? 0.1 : -0.1;
+    const newScore = Math.min(1, Math.max(0, currentScore + delta));
+
+    // Arrondir pour eviter les erreurs de virgule flottante
+    metadata.quality_score = Math.round(newScore * 1e10) / 1e10;
+
+    const now = Date.now() / 1000;
+    const nowIso = new Date().toISOString();
+
+    db.prepare(`
+      UPDATE memories
+      SET metadata = ?, updated_at = ?, updated_at_iso = ?
+      WHERE content_hash = ?
+    `).run(JSON.stringify(metadata), now, nowIso, hash);
+
+    res.json({
+      quality_score: metadata.quality_score,
+      content_hash: hash,
+    });
+  });
+
   // GET /api/memories/:hash/graph
   router.get('/memories/:hash/graph', (req: Request, res: Response) => {
     const { hash } = req.params;

@@ -690,6 +690,190 @@ describe('GET /api/memories - filtres avances', () => {
   });
 });
 
+// --- GET /api/memories/timeline ---
+describe('GET /api/memories/timeline', () => {
+  it('retourne les memoires groupees par date decroissante', async () => {
+    const res = await request(app).get('/api/memories/timeline');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('groups');
+    expect(Array.isArray(res.body.groups)).toBe(true);
+    expect(res.body).toHaveProperty('total');
+    expect(typeof res.body.total).toBe('number');
+
+    // Verifier le tri par date decroissante
+    const dates = res.body.groups.map((g: { date: string }) => g.date);
+    for (let i = 1; i < dates.length; i++) {
+      expect(dates[i] < dates[i - 1]).toBe(true);
+    }
+  });
+
+  it('chaque groupe contient date, count et memories', async () => {
+    const res = await request(app).get('/api/memories/timeline');
+    expect(res.status).toBe(200);
+
+    for (const group of res.body.groups) {
+      expect(group).toHaveProperty('date');
+      expect(group).toHaveProperty('count');
+      expect(group).toHaveProperty('memories');
+      expect(typeof group.date).toBe('string');
+      expect(typeof group.count).toBe('number');
+      expect(Array.isArray(group.memories)).toBe(true);
+      expect(group.memories.length).toBe(group.count);
+    }
+  });
+
+  it('le total correspond a la somme des counts', async () => {
+    const res = await request(app).get('/api/memories/timeline');
+    const sumCounts = res.body.groups.reduce(
+      (acc: number, g: { count: number }) => acc + g.count, 0
+    );
+    expect(res.body.total).toBe(sumCounts);
+  });
+
+  it('exclut les memoires supprimees', async () => {
+    const res = await request(app).get('/api/memories/timeline');
+    for (const group of res.body.groups) {
+      const hashes = group.memories.map((m: { content_hash: string }) => m.content_hash);
+      expect(hashes).not.toContain('hash_ddd444');
+    }
+  });
+
+  it('filtre par type', async () => {
+    const res = await request(app).get('/api/memories/timeline?type=decision');
+    expect(res.status).toBe(200);
+    for (const group of res.body.groups) {
+      for (const mem of group.memories) {
+        expect(mem.memory_type).toBe('decision');
+      }
+    }
+    expect(res.body.total).toBeGreaterThan(0);
+  });
+
+  it('filtre par tags', async () => {
+    const res = await request(app).get('/api/memories/timeline?tags=express');
+    expect(res.status).toBe(200);
+    for (const group of res.body.groups) {
+      for (const mem of group.memories) {
+        expect(mem.tags).toContain('express');
+      }
+    }
+    expect(res.body.total).toBeGreaterThan(0);
+  });
+
+  it('retourne un tableau vide pour un type inexistant', async () => {
+    const res = await request(app).get('/api/memories/timeline?type=nonexistent');
+    expect(res.status).toBe(200);
+    expect(res.body.groups).toHaveLength(0);
+    expect(res.body.total).toBe(0);
+  });
+
+  it('parse metadata et tags dans les memoires', async () => {
+    const res = await request(app).get('/api/memories/timeline');
+    const allMemories = res.body.groups.flatMap((g: { memories: unknown[] }) => g.memories);
+    const mem = allMemories.find((m: { content_hash: string }) => m.content_hash === 'hash_aaa111');
+    expect(mem).toBeDefined();
+    expect(mem.metadata).toBeTypeOf('object');
+    expect(Array.isArray(mem.tags)).toBe(true);
+  });
+});
+
+// --- POST /api/memories/:hash/rate ---
+describe('POST /api/memories/:hash/rate', () => {
+  it('thumbs up augmente le quality_score de 0.1', async () => {
+    // hash_hhh888 a quality_score = 0.72
+    const res = await request(app)
+      .post('/api/memories/hash_hhh888/rate')
+      .send({ rating: 1 });
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('quality_score');
+    expect(res.body.quality_score).toBeCloseTo(0.82, 5);
+    expect(res.body).toHaveProperty('content_hash', 'hash_hhh888');
+  });
+
+  it('thumbs down diminue le quality_score de 0.1', async () => {
+    // hash_ccc333 a quality_score = 0.45
+    const res = await request(app)
+      .post('/api/memories/hash_ccc333/rate')
+      .send({ rating: -1 });
+    expect(res.status).toBe(200);
+    expect(res.body.quality_score).toBeCloseTo(0.35, 5);
+    expect(res.body).toHaveProperty('content_hash', 'hash_ccc333');
+  });
+
+  it('clamp le score a 1.0 maximum', async () => {
+    // hash_ggg777 a quality_score = 1.0
+    const res = await request(app)
+      .post('/api/memories/hash_ggg777/rate')
+      .send({ rating: 1 });
+    expect(res.status).toBe(200);
+    expect(res.body.quality_score).toBe(1.0);
+  });
+
+  it('clamp le score a 0.0 minimum', async () => {
+    // Voter -1 plusieurs fois sur hash_fff666 (quality_score = 0.30)
+    await request(app).post('/api/memories/hash_fff666/rate').send({ rating: -1 }); // 0.20
+    await request(app).post('/api/memories/hash_fff666/rate').send({ rating: -1 }); // 0.10
+    const res = await request(app)
+      .post('/api/memories/hash_fff666/rate')
+      .send({ rating: -1 }); // 0.0
+    expect(res.status).toBe(200);
+    expect(res.body.quality_score).toBeCloseTo(0.0, 5);
+
+    // Un vote de plus ne doit pas descendre sous 0
+    const res2 = await request(app)
+      .post('/api/memories/hash_fff666/rate')
+      .send({ rating: -1 });
+    expect(res2.body.quality_score).toBe(0.0);
+  });
+
+  it('retourne 400 pour un rating invalide (0)', async () => {
+    const res = await request(app)
+      .post('/api/memories/hash_aaa111/rate')
+      .send({ rating: 0 });
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 pour un rating invalide (2)', async () => {
+    const res = await request(app)
+      .post('/api/memories/hash_aaa111/rate')
+      .send({ rating: 2 });
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 sans body rating', async () => {
+    const res = await request(app)
+      .post('/api/memories/hash_aaa111/rate')
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 404 pour un hash inexistant', async () => {
+    const res = await request(app)
+      .post('/api/memories/hash_inexistant/rate')
+      .send({ rating: 1 });
+    expect(res.status).toBe(404);
+  });
+
+  it('retourne 404 pour une memoire supprimee', async () => {
+    const res = await request(app)
+      .post('/api/memories/hash_ddd444/rate')
+      .send({ rating: 1 });
+    expect(res.status).toBe(404);
+  });
+
+  it('met a jour updated_at apres un vote', async () => {
+    const before = await request(app).get('/api/memories/hash_bbb222');
+    const beforeUpdated = before.body.updated_at;
+
+    await request(app)
+      .post('/api/memories/hash_bbb222/rate')
+      .send({ rating: 1 });
+
+    const after = await request(app).get('/api/memories/hash_bbb222');
+    expect(after.body.updated_at).toBeGreaterThanOrEqual(beforeUpdated);
+  });
+});
+
 // --- POST /api/memories/bulk-delete ---
 describe('Operations en masse', () => {
   describe('POST /api/memories/bulk-delete', () => {

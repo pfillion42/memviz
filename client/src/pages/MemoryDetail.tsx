@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMemory, useMemoryGraph } from '../hooks/useMemory';
 import { useUpdateMemory, useDeleteMemory } from '../hooks/useMutations';
 import { TagBadge } from '../components/TagBadge';
-import { QualityIndicator } from '../components/QualityIndicator';
+import { QualityVoter } from '../components/QualityVoter';
 
 const btnBase: React.CSSProperties = {
   padding: '6px 14px',
@@ -126,7 +126,7 @@ export function MemoryDetail() {
               </span>
             )
           )}
-          <QualityIndicator score={qualityScore} />
+          <QualityVoter hash={hash!} score={qualityScore} />
 
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
             {editing ? (

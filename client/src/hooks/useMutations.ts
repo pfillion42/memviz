@@ -47,3 +47,25 @@ export function useDeleteMemory() {
     },
   });
 }
+
+async function rateMemory(hash: string, vote: 'up' | 'down'): Promise<{ quality_score: number }> {
+  const res = await fetch(`/api/memories/${hash}/rate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ vote }),
+  });
+  if (!res.ok) throw new Error('Erreur lors du vote');
+  return res.json();
+}
+
+export function useRateMemory(hash: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vote: 'up' | 'down') => rateMemory(hash, vote),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['memory', hash] });
+      queryClient.invalidateQueries({ queryKey: ['memories'] });
+      queryClient.invalidateQueries({ queryKey: ['timeline'] });
+    },
+  });
+}
