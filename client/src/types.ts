@@ -94,3 +94,19 @@ export interface TimelineResponse {
   groups: TimelineGroup[];
   total: number;
 }
+
+export interface ProjectionPoint {
+  content_hash: string;
+  x: number;
+  y: number;
+  content: string;
+  memory_type: string | null;
+  tags: string[];
+  created_at_iso: string;
+}
+
+export interface ProjectionResponse {
+  points: ProjectionPoint[];
+  total: number;
+  params: { n_neighbors: number; min_dist: number };
+}

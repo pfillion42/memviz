@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { Database as DatabaseType } from 'better-sqlite3';
+import { UMAP } from 'umap-js';
 import type { EmbedFn } from '../embedder';
 
 interface MemoryRow {
@@ -367,6 +368,7 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
       WHERE content_hash IN (${placeholders}) AND deleted_at IS NULL
     `).run(now, ...hashes);
 
+    if (result.changes > 0) invalidateProjectionCache();
     res.json({ deleted: result.changes });
   });
 
@@ -529,6 +531,7 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     });
 
     importAll();
+    if (imported > 0) invalidateProjectionCache();
     res.json({ imported, skipped, total: memories.length });
   });
 
@@ -661,6 +664,108 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
       content_hash: hash,
     });
   });
+
+  // Cache pour les projections 2D
+  const projectionCache = new Map<string, { points: unknown[]; timestamp: number }>();
+  const PROJECTION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  // GET /api/memories/projection - projection 2D des embeddings via UMAP
+  const MAX_PROJECTION_POINTS = 5000;
+
+  router.get('/memories/projection', async (req: Request, res: Response) => {
+    const parsedNeighbors = parseInt(req.query.n_neighbors as string);
+    const nNeighbors = Number.isFinite(parsedNeighbors) ? Math.min(Math.max(parsedNeighbors, 2), 50) : 15;
+    const parsedDist = parseFloat(req.query.min_dist as string);
+    const minDist = Number.isFinite(parsedDist) ? Math.min(Math.max(parsedDist, 0.01), 1.0) : 0.1;
+
+    try {
+      // 1. Recuperer les memoires actives (avec limite pour eviter DoS)
+      const activeMemories = db.prepare(`
+        SELECT id, content_hash, content, memory_type, tags, created_at_iso
+        FROM memories WHERE deleted_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT ?
+      `).all(MAX_PROJECTION_POINTS) as { id: number; content_hash: string; content: string; memory_type: string | null; tags: string | null; created_at_iso: string }[];
+
+      if (activeMemories.length === 0) {
+        res.json({ points: [], total: 0, params: { n_neighbors: nNeighbors, min_dist: minDist } });
+        return;
+      }
+
+      // Verifier le cache
+      const cacheKey = `${nNeighbors}-${minDist}-${activeMemories.length}`;
+      const cached = projectionCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < PROJECTION_CACHE_TTL) {
+        res.json({ points: cached.points, total: cached.points.length, params: { n_neighbors: nNeighbors, min_dist: minDist } });
+        return;
+      }
+
+      // 2. Recuperer les embeddings pour chaque memoire
+      const embeddingsData: { mem: typeof activeMemories[0]; embedding: Float32Array }[] = [];
+
+      for (const mem of activeMemories) {
+        const embResult = db.prepare(`
+          SELECT content_embedding FROM memory_embeddings WHERE rowid = ?
+        `).get(mem.id) as { content_embedding: Buffer } | undefined;
+
+        if (!embResult) continue;
+
+        const float32 = new Float32Array(embResult.content_embedding.buffer,
+          embResult.content_embedding.byteOffset,
+          embResult.content_embedding.byteLength / 4);
+        embeddingsData.push({ mem, embedding: float32 });
+      }
+
+      if (embeddingsData.length === 0) {
+        res.json({ points: [], total: 0, params: { n_neighbors: nNeighbors, min_dist: minDist } });
+        return;
+      }
+
+      // 3. Construire la matrice de vecteurs pour UMAP
+      const vectors = embeddingsData.map(d => Array.from(d.embedding));
+
+      // 4. Calculer la projection UMAP
+      // Ajuster nNeighbors si on a peu de points
+      const effectiveNeighbors = Math.min(nNeighbors, embeddingsData.length - 1);
+      let projections: number[][];
+
+      if (embeddingsData.length < 3) {
+        // UMAP necessite au moins 3 points, fallback simple
+        projections = embeddingsData.map((_, i) => [i, 0]);
+      } else {
+        const umap = new UMAP({
+          nNeighbors: Math.max(2, effectiveNeighbors),
+          minDist,
+          nComponents: 2,
+        });
+        projections = umap.fit(vectors);
+      }
+
+      // 5. Construire les points de reponse
+      const points = embeddingsData.map((d, i) => ({
+        content_hash: d.mem.content_hash,
+        x: projections[i][0],
+        y: projections[i][1],
+        content: d.mem.content.length > 100 ? d.mem.content.substring(0, 100) + '...' : d.mem.content,
+        memory_type: d.mem.memory_type,
+        tags: d.mem.tags ? d.mem.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+        created_at_iso: d.mem.created_at_iso,
+      }));
+
+      // Mettre en cache
+      projectionCache.set(cacheKey, { points, timestamp: Date.now() });
+
+      res.json({ points, total: points.length, params: { n_neighbors: nNeighbors, min_dist: minDist } });
+    } catch (error) {
+      console.error('Erreur projection UMAP:', error);
+      res.status(500).json({ error: 'Erreur lors du calcul de la projection' });
+    }
+  });
+
+  // Fonction helper pour invalider le cache projection
+  function invalidateProjectionCache() {
+    projectionCache.clear();
+  }
 
   // GET /api/memories/stale - detection de memoires obsoletes (anciennes ou basse qualite)
   router.get('/memories/stale', (req: Request, res: Response) => {
@@ -884,6 +989,7 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
 
     const now = Date.now() / 1000;
     db.prepare('UPDATE memories SET deleted_at = ? WHERE content_hash = ?').run(now, hash);
+    invalidateProjectionCache();
 
     res.json({ deleted: true, content_hash: hash });
   });

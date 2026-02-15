@@ -17,7 +17,8 @@
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
     "express": "^4.21.0",
-    "sqlite-vec": "^0.1.7-alpha.2"
+    "sqlite-vec": "^0.1.7-alpha.2",
+    "umap-js": "^1.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

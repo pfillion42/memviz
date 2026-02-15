@@ -87,10 +87,27 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Navigation : lien "Obsoletes" entre Tags et Graphe
 - 11 tests backend + 7 tests frontend
 
+## Sprint 10 - Projection 2D des embeddings
+
+### 10.1 Backend - Endpoint projection UMAP - COMPLETE
+- Backend : GET /api/memories/projection?n_neighbors=15&min_dist=0.1
+- UMAP via umap-js (Google PAIR, BSD), calcul serveur, cache 5min
+- Limite 5000 points, validation NaN-safe des parametres
+- Invalidation cache sur modifications (PUT/DELETE/import/bulk)
+- 8 tests backend
+
+### 10.2 Frontend - Hook, ScatterPlot canvas et page - COMPLETE
+- Types : ProjectionPoint, ProjectionResponse dans types.ts
+- Hook : useProjection(nNeighbors, minDist) avec React Query
+- Composant : ScatterPlot canvas 2D (zoom/pan/hover/clic)
+- Page : /embeddings (EmbeddingView) avec sliders et legende
+- Navigation : lien "Embeddings" entre Obsoletes et Graphe
+- 8 tests frontend
+
 ## Backlog - Fonctionnalites futures
 
 ### Exploration et comprehension
-- [ ] Projection 2D des embeddings (t-SNE/UMAP) - vue espace vectoriel complet
+- [x] Projection 2D des embeddings (UMAP) - vue espace vectoriel complet (Sprint 10)
 - [ ] Clustering automatique - grouper par proximite semantique
 
 ### Navigation et UX
@@ -104,6 +121,9 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 ### Synchronisation et integration
 - [ ] Live reload - surveiller la DB SQLite, mise a jour temps reel
 - [ ] Diff entre memoires - comparer deux memoires cote a cote
+
+### Statistiques et monitoring
+- [ ] Compteur d'acces memoire (hit count) avec statistiques d'utilisation sur le Dashboard
 
 ### Qualite
 - [ ] Tests E2E (Playwright/Cypress)
@@ -119,9 +139,10 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Embedding : all-MiniLM-L6-v2 (384 dims, cosine distance)
 - Injection de dependance : `createMemoriesRouter(db)` pour faciliter les tests
 - Frontend : React Query + React Router, hooks custom, theme sombre via CSS custom properties
-- Navigation : / (Dashboard), /timeline (Timeline), /memories (MemoryList), /memories/:hash (MemoryDetail), /duplicates (Duplicates), /graph (GraphView)
+- Navigation : / (Dashboard), /timeline (Timeline), /memories (MemoryList), /memories/:hash (MemoryDetail), /duplicates (Duplicates), /tags (Tags), /stale (Stale), /embeddings (EmbeddingView), /graph (GraphView)
 - Embedder : @huggingface/transformers (all-MiniLM-L6-v2), injection de dependance pour tests
 - Graphe : react-force-graph-2d pour la visualisation force-directed
+- Projection : umap-js (Google PAIR) pour la projection 2D des embeddings, calcul serveur avec cache
 - Mode read/write : configurable via MEMORY_DB_READONLY env var
 
 ## Journal des sessions
@@ -140,3 +161,4 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 | 2026-02-14 | Sprint 7 tags + raccourcis | Gestion tags (rename/delete/merge), raccourcis clavier, 215 tests verts |
 | 2026-02-14 | Sprint 8.1 securite | 6 correctifs : bind localhost, CORS, body limit, env DB, FTS5 sanitize, LIKE escape, 221 tests verts |
 | 2026-02-14 | Sprint 9 theme + obsoletes | Toggle dark/light, page memoires obsoletes, 248 tests verts |
+| 2026-02-14 | Sprint 10 projection 2D | Endpoint UMAP, ScatterPlot canvas, page /embeddings, 264 tests verts |

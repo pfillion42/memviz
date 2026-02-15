@@ -1563,3 +1563,89 @@ describe('Securite - Limite body JSON', () => {
     expect(res.status).not.toBe(500);
   });
 });
+
+// --- GET /api/memories/projection - Projection 2D des embeddings ---
+describe('GET /api/memories/projection', () => {
+  it('retourne 200 avec des points pour les memoires avec embeddings', async () => {
+    const res = await request(app).get('/api/memories/projection');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('points');
+    expect(Array.isArray(res.body.points)).toBe(true);
+    expect(res.body.points.length).toBeGreaterThan(0);
+    expect(res.body).toHaveProperty('total');
+    expect(res.body).toHaveProperty('params');
+  });
+
+  it('chaque point a x, y, content_hash, memory_type', async () => {
+    const res = await request(app).get('/api/memories/projection');
+    expect(res.status).toBe(200);
+
+    const point = res.body.points[0];
+    expect(point).toHaveProperty('content_hash');
+    expect(point).toHaveProperty('x');
+    expect(point).toHaveProperty('y');
+    expect(point).toHaveProperty('memory_type');
+    expect(point).toHaveProperty('tags');
+    expect(point).toHaveProperty('content');
+    expect(point).toHaveProperty('created_at_iso');
+    expect(typeof point.x).toBe('number');
+    expect(typeof point.y).toBe('number');
+    expect(Array.isArray(point.tags)).toBe(true);
+  });
+
+  it('exclut les memoires supprimees', async () => {
+    const res = await request(app).get('/api/memories/projection');
+    expect(res.status).toBe(200);
+
+    const hashes = res.body.points.map((p: { content_hash: string }) => p.content_hash);
+    expect(hashes).not.toContain('hash_ddd444');
+  });
+
+  it('retourne total correspondant au nombre de points', async () => {
+    const res = await request(app).get('/api/memories/projection');
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(res.body.points.length);
+  });
+
+  it('respecte les parametres n_neighbors et min_dist', async () => {
+    const res = await request(app).get('/api/memories/projection?n_neighbors=5&min_dist=0.5');
+    expect(res.status).toBe(200);
+    expect(res.body.params).toHaveProperty('n_neighbors', 5);
+    expect(res.body.params).toHaveProperty('min_dist', 0.5);
+  });
+
+  it('retourne les parametres par defaut si non fournis', async () => {
+    const res = await request(app).get('/api/memories/projection');
+    expect(res.status).toBe(200);
+    expect(res.body.params).toHaveProperty('n_neighbors', 15);
+    expect(res.body.params).toHaveProperty('min_dist', 0.1);
+  });
+
+  it('retourne un tableau vide si 0 memoires avec embeddings', async () => {
+    // Creer une app avec une DB vide (sans embeddings)
+    const emptyDb = createTestDb();
+    // Supprimer toutes les memoires actives
+    emptyDb.exec("UPDATE memories SET deleted_at = 1 WHERE deleted_at IS NULL");
+
+    const emptyApp = express();
+    emptyApp.use(express.json());
+    emptyApp.use('/api', createMemoriesRouter(emptyDb, { embedFn: mockEmbedFn }));
+
+    const res = await request(emptyApp).get('/api/memories/projection');
+    expect(res.status).toBe(200);
+    expect(res.body.points).toHaveLength(0);
+    expect(res.body.total).toBe(0);
+
+    emptyDb.close();
+  });
+
+  it('tronque le contenu des points', async () => {
+    const res = await request(app).get('/api/memories/projection');
+    expect(res.status).toBe(200);
+
+    // Tous les contenus doivent etre <= 100 caracteres
+    for (const point of res.body.points) {
+      expect(point.content.length).toBeLessThanOrEqual(103); // 100 + "..."
+    }
+  });
+});
