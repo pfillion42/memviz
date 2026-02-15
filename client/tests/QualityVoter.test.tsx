@@ -5,14 +5,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { QualityVoter } from '../src/components/QualityVoter';
 
-function renderVoter(props: { hash: string; score?: number | null }) {
+function renderVoter(props: { hash: string; score?: number | null; compact?: boolean }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
-        <QualityVoter hash={props.hash} score={props.score} />
+        <QualityVoter hash={props.hash} score={props.score} compact={props.compact} />
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -23,32 +23,37 @@ beforeEach(() => {
 });
 
 describe('QualityVoter', () => {
-  it('affiche le score via QualityIndicator', () => {
-    renderVoter({ hash: 'hash_aaa', score: 0.85 });
-    expect(screen.getByText('85%')).toBeDefined();
+  it('affiche 5 boutons etoiles', () => {
+    renderVoter({ hash: 'hash_aaa', score: 0.6 });
+    const buttons = screen.getAllByRole('button');
+    expect(buttons).toHaveLength(5);
   });
 
-  it('affiche -- quand le score est null', () => {
+  it('affiche le score N/A quand score est null', () => {
     renderVoter({ hash: 'hash_aaa', score: null });
-    expect(screen.getByText('--')).toBeDefined();
+    expect(screen.getByText('N/A')).toBeDefined();
   });
 
-  it('affiche les boutons vote up et vote down', () => {
-    renderVoter({ hash: 'hash_aaa', score: 0.5 });
-    expect(screen.getByRole('button', { name: /vote up/i })).toBeDefined();
-    expect(screen.getByRole('button', { name: /vote down/i })).toBeDefined();
+  it('affiche le score en etoiles (0.6 = 3/5)', () => {
+    renderVoter({ hash: 'hash_aaa', score: 0.6 });
+    expect(screen.getByText('3/5')).toBeDefined();
   });
 
-  it('appelle POST /api/memories/:hash/rate avec up au clic sur vote up', async () => {
+  it('affiche le score en etoiles (1.0 = 5/5)', () => {
+    renderVoter({ hash: 'hash_aaa', score: 1.0 });
+    expect(screen.getByText('5/5')).toBeDefined();
+  });
+
+  it('envoie score 0.6 au clic sur la 3e etoile', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ quality_score: 0.9 }),
+      json: () => Promise.resolve({ quality_score: 0.6 }),
     } as Response);
 
-    renderVoter({ hash: 'hash_aaa', score: 0.5 });
+    renderVoter({ hash: 'hash_aaa', score: 0.4 });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: /vote up/i }));
+    await user.click(screen.getByRole('button', { name: /3 etoiles/i }));
 
     await waitFor(() => {
       const calls = fetchSpy.mock.calls;
@@ -59,31 +64,12 @@ describe('QualityVoter', () => {
       expect(rateCall).toBeDefined();
       const opts = rateCall![1] as RequestInit;
       expect(opts.method).toBe('POST');
-      expect(JSON.parse(opts.body as string)).toEqual({ vote: 'up' });
+      expect(JSON.parse(opts.body as string)).toEqual({ score: 0.6 });
     });
   });
 
-  it('appelle POST /api/memories/:hash/rate avec down au clic sur vote down', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ quality_score: 0.3 }),
-    } as Response);
-
-    renderVoter({ hash: 'hash_aaa', score: 0.5 });
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: /vote down/i }));
-
-    await waitFor(() => {
-      const calls = fetchSpy.mock.calls;
-      const rateCall = calls.find((c) => {
-        const url = typeof c[0] === 'string' ? c[0] : (c[0] as Request).url;
-        return url.includes('/api/memories/hash_aaa/rate');
-      });
-      expect(rateCall).toBeDefined();
-      const opts = rateCall![1] as RequestInit;
-      expect(opts.method).toBe('POST');
-      expect(JSON.parse(opts.body as string)).toEqual({ vote: 'down' });
-    });
+  it('masque le label score en mode compact', () => {
+    renderVoter({ hash: 'hash_aaa', score: 0.8, compact: true });
+    expect(screen.queryByText('4/5')).toBeNull();
   });
 });

@@ -567,12 +567,27 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     });
   });
 
-  // POST /api/memories/:hash/rate - vote qualite thumbs up/down
+  // POST /api/memories/:hash/rate - noter la qualite d'une memoire
+  // Accepte { score: 0-1 } (valeur directe) ou { rating: 1|-1 } (increment)
   router.post('/memories/:hash/rate', (req: Request, res: Response) => {
     const { hash } = req.params;
-    const { rating } = req.body;
+    const { rating, score } = req.body;
 
-    if (rating !== 1 && rating !== -1) {
+    // Validation : soit score (0-1), soit rating (1/-1)
+    const hasScore = score !== undefined && score !== null;
+    const hasRating = rating !== undefined && rating !== null;
+
+    if (!hasScore && !hasRating) {
+      res.status(400).json({ error: 'Le champ score (0-1) ou rating (1/-1) est requis' });
+      return;
+    }
+
+    if (hasScore && (typeof score !== 'number' || score < 0 || score > 1)) {
+      res.status(400).json({ error: 'Le champ score doit etre un nombre entre 0 et 1' });
+      return;
+    }
+
+    if (hasRating && rating !== 1 && rating !== -1) {
       res.status(400).json({ error: 'Le champ rating doit etre 1 ou -1' });
       return;
     }
@@ -596,9 +611,16 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
       // metadata invalide, initialiser a vide
     }
 
-    const currentScore = typeof metadata.quality_score === 'number' ? metadata.quality_score : 0.5;
-    const delta = rating === 1 ? 0.1 : -0.1;
-    const newScore = Math.min(1, Math.max(0, currentScore + delta));
+    let newScore: number;
+    if (hasScore) {
+      // Score direct (etoiles : 1=0.2, 2=0.4, 3=0.6, 4=0.8, 5=1.0)
+      newScore = score;
+    } else {
+      // Increment +/- 0.1
+      const currentScore = typeof metadata.quality_score === 'number' ? metadata.quality_score : 0.5;
+      const delta = rating === 1 ? 0.1 : -0.1;
+      newScore = Math.min(1, Math.max(0, currentScore + delta));
+    }
 
     // Arrondir pour eviter les erreurs de virgule flottante
     metadata.quality_score = Math.round(newScore * 1e10) / 1e10;

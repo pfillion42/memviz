@@ -48,20 +48,20 @@ export function useDeleteMemory() {
   });
 }
 
-async function rateMemory(hash: string, vote: 'up' | 'down'): Promise<{ quality_score: number }> {
+async function rateMemory(hash: string, score: number): Promise<{ quality_score: number }> {
   const res = await fetch(`/api/memories/${hash}/rate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ vote }),
+    body: JSON.stringify({ score }),
   });
-  if (!res.ok) throw new Error('Erreur lors du vote');
+  if (!res.ok) throw new Error('Erreur lors de la notation');
   return res.json();
 }
 
 export function useRateMemory(hash: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (vote: 'up' | 'down') => rateMemory(hash, vote),
+    mutationFn: (score: number) => rateMemory(hash, score),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['memory', hash] });
       queryClient.invalidateQueries({ queryKey: ['memories'] });

@@ -861,6 +861,28 @@ describe('POST /api/memories/:hash/rate', () => {
     expect(res.status).toBe(404);
   });
 
+  it('accepte un score direct (0-1) pour notation etoiles', async () => {
+    const res = await request(app)
+      .post('/api/memories/hash_aaa111/rate')
+      .send({ score: 0.8 });
+    expect(res.status).toBe(200);
+    expect(res.body.quality_score).toBe(0.8);
+  });
+
+  it('retourne 400 pour un score hors limites', async () => {
+    const res = await request(app)
+      .post('/api/memories/hash_aaa111/rate')
+      .send({ score: 1.5 });
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 pour un score negatif', async () => {
+    const res = await request(app)
+      .post('/api/memories/hash_aaa111/rate')
+      .send({ score: -0.1 });
+    expect(res.status).toBe(400);
+  });
+
   it('met a jour updated_at apres un vote', async () => {
     const before = await request(app).get('/api/memories/hash_bbb222');
     const beforeUpdated = before.body.updated_at;

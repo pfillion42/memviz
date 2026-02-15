@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { QualityIndicator } from './QualityIndicator';
 import { useRateMemory } from '../hooks/useMutations';
 
 interface QualityVoterProps {
@@ -8,62 +7,76 @@ interface QualityVoterProps {
   compact?: boolean;
 }
 
+// Convertir score 0-1 en etoiles 1-5 (0.2=1, 0.4=2, ..., 1.0=5)
+function scoreToStars(score: number | null | undefined): number {
+  if (score == null) return 0;
+  return Math.max(0, Math.min(5, Math.round(score * 5)));
+}
+
+// Convertir etoiles 1-5 en score 0-1
+function starsToScore(stars: number): number {
+  return stars / 5;
+}
+
 export function QualityVoter({ hash, score, compact = false }: QualityVoterProps) {
   const rateMutation = useRateMemory(hash);
-  const [flashColor, setFlashColor] = useState<string | null>(null);
+  const [hoverStar, setHoverStar] = useState<number>(0);
+  const currentStars = scoreToStars(score);
 
-  function handleVote(vote: 'up' | 'down') {
-    const color = vote === 'up' ? 'var(--success)' : 'var(--error)';
-    setFlashColor(color);
-    setTimeout(() => setFlashColor(null), 400);
-    rateMutation.mutate(vote);
+  function handleClick(star: number) {
+    rateMutation.mutate(starsToScore(star));
   }
 
-  const btnStyle: React.CSSProperties = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: compact ? '24px' : '28px',
-    height: compact ? '24px' : '28px',
-    fontSize: compact ? '12px' : '14px',
-    border: '1px solid var(--border-default)',
-    borderRadius: 'var(--radius-sm)',
-    backgroundColor: 'var(--bg-elevated)',
-    color: 'var(--text-secondary)',
-    cursor: 'pointer',
-    transition: 'all var(--transition-fast)',
-    padding: 0,
-  };
+  const starSize = compact ? '14px' : '18px';
 
   return (
     <span
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: compact ? '4px' : '6px',
-        transition: 'background-color 0.3s ease',
-        backgroundColor: flashColor ?? 'transparent',
-        borderRadius: 'var(--radius-sm)',
-        padding: '2px 4px',
+        gap: '1px',
       }}
+      onMouseLeave={() => setHoverStar(0)}
     >
-      <button
-        onClick={(e) => { e.preventDefault(); handleVote('up'); }}
-        disabled={rateMutation.isPending}
-        aria-label="Vote up"
-        style={btnStyle}
-      >
-        &#9650;
-      </button>
-      <QualityIndicator score={score} />
-      <button
-        onClick={(e) => { e.preventDefault(); handleVote('down'); }}
-        disabled={rateMutation.isPending}
-        aria-label="Vote down"
-        style={btnStyle}
-      >
-        &#9660;
-      </button>
+      {[1, 2, 3, 4, 5].map((star) => {
+        const filled = hoverStar > 0 ? star <= hoverStar : star <= currentStars;
+        return (
+          <button
+            key={star}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(star); }}
+            onMouseEnter={() => setHoverStar(star)}
+            disabled={rateMutation.isPending}
+            aria-label={`${star} etoile${star > 1 ? 's' : ''}`}
+            title={`${star}/5`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '0 1px',
+              fontSize: starSize,
+              color: filled ? 'var(--warning)' : 'var(--border-default)',
+              transition: 'color 0.15s ease, transform 0.1s ease',
+              transform: hoverStar === star ? 'scale(1.2)' : 'scale(1)',
+              lineHeight: 1,
+            }}
+          >
+            {filled ? '\u2605' : '\u2606'}
+          </button>
+        );
+      })}
+      {!compact && (
+        <span style={{
+          fontSize: '11px',
+          color: 'var(--text-muted)',
+          marginLeft: '6px',
+          minWidth: '28px',
+        }}>
+          {currentStars > 0 ? `${currentStars}/5` : 'N/A'}
+        </span>
+      )}
     </span>
   );
 }
