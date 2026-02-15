@@ -68,6 +68,53 @@ function escapeLike(input: string): string {
   return input.replace(/[%_]/g, '\\$&');
 }
 
+// Classe Union-Find reutilisable pour le clustering
+export class UnionFind {
+  private parent = new Map<number, number>();
+  private rank = new Map<number, number>();
+
+  find(x: number): number {
+    if (!this.parent.has(x)) {
+      this.parent.set(x, x);
+      this.rank.set(x, 0);
+    }
+    if (this.parent.get(x) !== x) {
+      this.parent.set(x, this.find(this.parent.get(x)!));
+    }
+    return this.parent.get(x)!;
+  }
+
+  union(x: number, y: number): void {
+    const rootX = this.find(x);
+    const rootY = this.find(y);
+    if (rootX === rootY) return;
+
+    const rankX = this.rank.get(rootX) || 0;
+    const rankY = this.rank.get(rootY) || 0;
+
+    if (rankX < rankY) {
+      this.parent.set(rootX, rootY);
+    } else if (rankX > rankY) {
+      this.parent.set(rootY, rootX);
+    } else {
+      this.parent.set(rootY, rootX);
+      this.rank.set(rootX, rankX + 1);
+    }
+  }
+
+  getClusters(): Map<number, Set<number>> {
+    const clusters = new Map<number, Set<number>>();
+    for (const id of this.parent.keys()) {
+      const root = this.find(id);
+      if (!clusters.has(root)) {
+        clusters.set(root, new Set());
+      }
+      clusters.get(root)!.add(id);
+    }
+    return clusters;
+  }
+}
+
 export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = {}): Router {
   const router = Router();
 
@@ -208,54 +255,21 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
       }
 
       // 3. Regrouper les paires en clusters (Union-Find)
-      const parent = new Map<number, number>();
-      const rank = new Map<number, number>();
-
-      function find(x: number): number {
-        if (!parent.has(x)) {
-          parent.set(x, x);
-          rank.set(x, 0);
-        }
-        if (parent.get(x) !== x) {
-          parent.set(x, find(parent.get(x)!));
-        }
-        return parent.get(x)!;
-      }
-
-      function union(x: number, y: number): void {
-        const rootX = find(x);
-        const rootY = find(y);
-        if (rootX === rootY) return;
-
-        const rankX = rank.get(rootX) || 0;
-        const rankY = rank.get(rootY) || 0;
-
-        if (rankX < rankY) {
-          parent.set(rootX, rootY);
-        } else if (rankX > rankY) {
-          parent.set(rootY, rootX);
-        } else {
-          parent.set(rootY, rootX);
-          rank.set(rootX, rankX + 1);
-        }
-      }
+      const uf = new UnionFind();
 
       for (const pair of pairs) {
-        union(pair.id1, pair.id2);
+        uf.union(pair.id1, pair.id2);
       }
 
       // 4. Grouper les IDs par cluster
-      const clusters = new Map<number, Set<number>>();
+      const clusters = uf.getClusters();
       const clusterSimilarities = new Map<number, number[]>();
 
       for (const pair of pairs) {
-        const root = find(pair.id1);
-        if (!clusters.has(root)) {
-          clusters.set(root, new Set());
+        const root = uf.find(pair.id1);
+        if (!clusterSimilarities.has(root)) {
           clusterSimilarities.set(root, []);
         }
-        clusters.get(root)!.add(pair.id1);
-        clusters.get(root)!.add(pair.id2);
         clusterSimilarities.get(root)!.push(pair.similarity);
       }
 
@@ -299,6 +313,260 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     } catch (error) {
       console.error('Erreur detection doublons:', error);
       res.status(500).json({ error: 'Erreur lors de la detection de doublons' });
+    }
+  });
+
+  // Cache pour les clusters semantiques
+  const clustersCache = new Map<string, { data: unknown; timestamp: number }>();
+  const CLUSTERS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  function invalidateClustersCache() {
+    clustersCache.clear();
+  }
+
+  // GET /api/memories/clusters - clustering semantique automatique
+  router.get('/memories/clusters', async (req: Request, res: Response) => {
+    const parsedThreshold = parseFloat(req.query.threshold as string);
+    const threshold = Number.isFinite(parsedThreshold) ? parsedThreshold : 0.6;
+    const parsedMinSize = parseInt(req.query.min_size as string);
+    const minSize = Number.isFinite(parsedMinSize) ? parsedMinSize : 2;
+
+    // Validation
+    if (threshold < 0 || threshold > 1) {
+      res.status(400).json({ error: 'Le parametre threshold doit etre entre 0 et 1' });
+      return;
+    }
+    if (minSize < 2) {
+      res.status(400).json({ error: 'Le parametre min_size doit etre >= 2' });
+      return;
+    }
+
+    try {
+      // 1. Recuperer les memoires actives avec leurs IDs
+      const activeMemories = db.prepare(`
+        SELECT id, content_hash, content, memory_type, tags, metadata,
+               created_at, updated_at, created_at_iso, updated_at_iso, deleted_at
+        FROM memories WHERE deleted_at IS NULL
+      `).all() as MemoryRow[];
+
+      if (activeMemories.length === 0) {
+        res.json({ clusters: [], total_clusters: 0, params: { threshold, min_size: minSize } });
+        return;
+      }
+
+      // Verifier le cache
+      const cacheKey = `clusters-${threshold}-${minSize}-${activeMemories.length}`;
+      const cached = clustersCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < CLUSTERS_CACHE_TTL) {
+        res.json(cached.data);
+        return;
+      }
+
+      // 2. KNN pour trouver les paires similaires
+      interface Pair {
+        id1: number;
+        id2: number;
+        similarity: number;
+      }
+
+      const pairs: Pair[] = [];
+      const processedPairs = new Set<string>();
+
+      for (const mem of activeMemories) {
+        const embResult = db.prepare(`
+          SELECT content_embedding FROM memory_embeddings WHERE rowid = ?
+        `).get(mem.id) as { content_embedding: Buffer } | undefined;
+
+        if (!embResult) continue;
+
+        const vecResults = db.prepare(`
+          SELECT rowid, distance
+          FROM memory_embeddings
+          WHERE content_embedding MATCH ?
+          ORDER BY distance
+          LIMIT 50
+        `).all(embResult.content_embedding) as { rowid: number; distance: number }[];
+
+        for (const vec of vecResults) {
+          if (vec.rowid === mem.id) continue;
+          const similarity = 1 - vec.distance;
+          if (similarity < threshold) continue;
+
+          const pairKey = [mem.id, vec.rowid].sort((a, b) => a - b).join('-');
+          if (processedPairs.has(pairKey)) continue;
+
+          processedPairs.add(pairKey);
+          pairs.push({ id1: mem.id, id2: vec.rowid, similarity });
+        }
+      }
+
+      if (pairs.length === 0) {
+        const result = { clusters: [], total_clusters: 0, params: { threshold, min_size: minSize } };
+        clustersCache.set(cacheKey, { data: result, timestamp: Date.now() });
+        res.json(result);
+        return;
+      }
+
+      // 3. Union-Find pour former les clusters
+      const uf = new UnionFind();
+      for (const pair of pairs) {
+        uf.union(pair.id1, pair.id2);
+      }
+
+      const clusterMap = uf.getClusters();
+
+      // Calculer la similarite moyenne par cluster
+      const clusterSimilarities = new Map<number, number[]>();
+      for (const pair of pairs) {
+        const root = uf.find(pair.id1);
+        if (!clusterSimilarities.has(root)) {
+          clusterSimilarities.set(root, []);
+        }
+        clusterSimilarities.get(root)!.push(pair.similarity);
+      }
+
+      // 4. Construire les clusters avec filtrage min_size
+      const memById = new Map(activeMemories.map(m => [m.id, m]));
+      const clusterEntries: {
+        id: number;
+        label: string;
+        size: number;
+        members: unknown[];
+        avg_similarity: number;
+        memberIds: number[];
+      }[] = [];
+
+      let clusterId = 0;
+      for (const [root, idSet] of clusterMap.entries()) {
+        if (idSet.size < minSize) continue;
+
+        const memberRows = Array.from(idSet)
+          .map(id => memById.get(id))
+          .filter((m): m is MemoryRow => m !== undefined);
+
+        if (memberRows.length < minSize) continue;
+
+        // Label = type le plus frequent
+        const typeCounts: Record<string, number> = {};
+        for (const m of memberRows) {
+          const t = m.memory_type || 'unknown';
+          typeCounts[t] = (typeCounts[t] || 0) + 1;
+        }
+        const label = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0][0];
+
+        // Similarite moyenne
+        const sims = clusterSimilarities.get(root) || [];
+        const avgSim = sims.length > 0 ? sims.reduce((a, b) => a + b, 0) / sims.length : 0;
+
+        clusterEntries.push({
+          id: clusterId++,
+          label,
+          size: memberRows.length,
+          members: memberRows.map(parseMemory),
+          avg_similarity: avgSim,
+          memberIds: Array.from(idSet),
+        });
+      }
+
+      // 5. Calculer les centroids via UMAP
+      // Recuperer les embeddings pour tous les membres des clusters
+      const allMemberIds = new Set<number>();
+      for (const c of clusterEntries) {
+        for (const id of c.memberIds) {
+          allMemberIds.add(id);
+        }
+      }
+
+      const embeddingsById = new Map<number, Float32Array>();
+      for (const id of allMemberIds) {
+        const embResult = db.prepare(`
+          SELECT content_embedding FROM memory_embeddings WHERE rowid = ?
+        `).get(id) as { content_embedding: Buffer } | undefined;
+
+        if (embResult) {
+          const float32 = new Float32Array(
+            embResult.content_embedding.buffer,
+            embResult.content_embedding.byteOffset,
+            embResult.content_embedding.byteLength / 4
+          );
+          embeddingsById.set(id, float32);
+        }
+      }
+
+      // Projection UMAP pour les centroids
+      const allIds = Array.from(allMemberIds);
+      const vectors = allIds.map(id => {
+        const emb = embeddingsById.get(id);
+        return emb ? Array.from(emb) : new Array(384).fill(0);
+      });
+
+      let projections: number[][];
+      if (vectors.length < 3) {
+        projections = vectors.map((_, i) => [i, 0]);
+      } else {
+        const effectiveNeighbors = Math.min(15, vectors.length - 1);
+        const umap = new UMAP({
+          nNeighbors: Math.max(2, effectiveNeighbors),
+          minDist: 0.1,
+          nComponents: 2,
+        });
+        projections = umap.fit(vectors);
+      }
+
+      const projectionById = new Map<number, { x: number; y: number }>();
+      for (let i = 0; i < allIds.length; i++) {
+        projectionById.set(allIds[i], { x: projections[i][0], y: projections[i][1] });
+      }
+
+      // Calculer le centroid moyen de chaque cluster
+      interface ClusterResult {
+        id: number;
+        label: string;
+        size: number;
+        members: unknown[];
+        avg_similarity: number;
+        centroid: { x: number; y: number };
+      }
+
+      const clusters: ClusterResult[] = clusterEntries.map(c => {
+        let cx = 0, cy = 0, count = 0;
+        for (const id of c.memberIds) {
+          const proj = projectionById.get(id);
+          if (proj) {
+            cx += proj.x;
+            cy += proj.y;
+            count++;
+          }
+        }
+        if (count > 0) {
+          cx /= count;
+          cy /= count;
+        }
+
+        return {
+          id: c.id,
+          label: c.label,
+          size: c.size,
+          members: c.members,
+          avg_similarity: c.avg_similarity,
+          centroid: { x: cx, y: cy },
+        };
+      });
+
+      // 6. Trier par taille DESC
+      clusters.sort((a, b) => b.size - a.size);
+
+      const result = {
+        clusters,
+        total_clusters: clusters.length,
+        params: { threshold, min_size: minSize },
+      };
+
+      clustersCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      res.json(result);
+    } catch (error) {
+      console.error('Erreur clustering:', error);
+      res.status(500).json({ error: 'Erreur lors du clustering semantique' });
     }
   });
 
@@ -457,7 +725,7 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
       WHERE content_hash IN (${placeholders}) AND deleted_at IS NULL
     `).run(now, ...hashes);
 
-    if (result.changes > 0) invalidateProjectionCache();
+    if (result.changes > 0) invalidateProjectionCache(); invalidateClustersCache();
     res.json({ deleted: result.changes });
   });
 
@@ -620,7 +888,7 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     });
 
     importAll();
-    if (imported > 0) invalidateProjectionCache();
+    if (imported > 0) invalidateProjectionCache(); invalidateClustersCache();
     res.json({ imported, skipped, total: memories.length });
   });
 
@@ -1127,7 +1395,7 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
 
     const now = Date.now() / 1000;
     db.prepare('UPDATE memories SET deleted_at = ? WHERE content_hash = ?').run(now, hash);
-    invalidateProjectionCache();
+    invalidateProjectionCache(); invalidateClustersCache();
 
     res.json({ deleted: true, content_hash: hash });
   });

@@ -1958,3 +1958,92 @@ describe('GET /api/memories/usage-stats', () => {
     emptyLogDb.close();
   });
 });
+
+// --- GET /api/memories/clusters ---
+describe('GET /api/memories/clusters', () => {
+  it('retourne 200 avec structure correcte (clusters, total_clusters, params)', async () => {
+    const res = await request(app).get('/api/memories/clusters?threshold=0.5');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('clusters');
+    expect(Array.isArray(res.body.clusters)).toBe(true);
+    expect(res.body).toHaveProperty('total_clusters');
+    expect(typeof res.body.total_clusters).toBe('number');
+    expect(res.body).toHaveProperty('params');
+    expect(res.body.params).toHaveProperty('threshold');
+    expect(res.body.params).toHaveProperty('min_size');
+  });
+
+  it('chaque cluster a id, label, size, members, avg_similarity, centroid', async () => {
+    const res = await request(app).get('/api/memories/clusters?threshold=0.3');
+    expect(res.status).toBe(200);
+
+    if (res.body.clusters.length > 0) {
+      const cluster = res.body.clusters[0];
+      expect(cluster).toHaveProperty('id');
+      expect(typeof cluster.id).toBe('number');
+      expect(cluster).toHaveProperty('label');
+      expect(typeof cluster.label).toBe('string');
+      expect(cluster).toHaveProperty('size');
+      expect(typeof cluster.size).toBe('number');
+      expect(cluster).toHaveProperty('members');
+      expect(Array.isArray(cluster.members)).toBe(true);
+      expect(cluster).toHaveProperty('avg_similarity');
+      expect(typeof cluster.avg_similarity).toBe('number');
+      expect(cluster).toHaveProperty('centroid');
+      expect(cluster.centroid).toHaveProperty('x');
+      expect(cluster.centroid).toHaveProperty('y');
+    }
+  });
+
+  it('filtre min_size : threshold=0, min_size=3 retourne moins de clusters', async () => {
+    const resLow = await request(app).get('/api/memories/clusters?threshold=0&min_size=2');
+    const resHigh = await request(app).get('/api/memories/clusters?threshold=0&min_size=3');
+    expect(resLow.status).toBe(200);
+    expect(resHigh.status).toBe(200);
+    expect(resHigh.body.total_clusters).toBeLessThanOrEqual(resLow.body.total_clusters);
+  });
+
+  it('retourne tableau vide si threshold=0.99 (aucun pair assez similaire)', async () => {
+    const res = await request(app).get('/api/memories/clusters?threshold=0.99');
+    expect(res.status).toBe(200);
+    expect(res.body.clusters).toHaveLength(0);
+    expect(res.body.total_clusters).toBe(0);
+  });
+
+  it('avg_similarity est un nombre entre 0 et 1', async () => {
+    const res = await request(app).get('/api/memories/clusters?threshold=0.3');
+    expect(res.status).toBe(200);
+
+    for (const cluster of res.body.clusters) {
+      expect(cluster.avg_similarity).toBeGreaterThanOrEqual(0);
+      expect(cluster.avg_similarity).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('retourne 400 si threshold hors [0,1] (ex: threshold=2)', async () => {
+    const res = await request(app).get('/api/memories/clusters?threshold=2');
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 si min_size < 2 (ex: min_size=0)', async () => {
+    const res = await request(app).get('/api/memories/clusters?threshold=0.5&min_size=0');
+    expect(res.status).toBe(400);
+  });
+
+  it('label correspond au memory_type le plus frequent du cluster', async () => {
+    const res = await request(app).get('/api/memories/clusters?threshold=0.3');
+    expect(res.status).toBe(200);
+
+    for (const cluster of res.body.clusters) {
+      // Compter les types dans les membres
+      const typeCounts: Record<string, number> = {};
+      for (const mem of cluster.members) {
+        const t = mem.memory_type || 'unknown';
+        typeCounts[t] = (typeCounts[t] || 0) + 1;
+      }
+      // Le label doit etre le type le plus frequent
+      const maxType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0][0];
+      expect(cluster.label).toBe(maxType);
+    }
+  });
+});

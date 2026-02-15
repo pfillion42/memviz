@@ -41,6 +41,12 @@ beforeEach(() => {
         json: () => Promise.resolve({ groups: [], total: 0 }),
       } as Response);
     }
+    if (urlStr.includes('/api/memories/clusters')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ clusters: [], total_clusters: 0, params: { threshold: 0.6, min_size: 2 } }),
+      } as Response);
+    }
     if (urlStr.includes('/api/tags')) {
       return Promise.resolve({
         ok: true,
@@ -73,6 +79,7 @@ describe('App', () => {
     expect(screen.getByText('Doublons')).toBeDefined();
     expect(screen.getByText('Tags')).toBeDefined();
     expect(screen.getByText('Obsoletes')).toBeDefined();
+    expect(screen.getByText('Clusters')).toBeDefined();
     expect(screen.getByText('Graphe')).toBeDefined();
   });
 

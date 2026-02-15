@@ -19,13 +19,15 @@ interface ScatterPlotProps {
   onPointClick?: (hash: string) => void;
   width?: number;
   height?: number;
+  colorMap?: Record<string, string>;
 }
 
-function getColor(type: string | null): string {
+function getColor(type: string | null, hash?: string, colorMap?: Record<string, string>): string {
+  if (colorMap && hash && colorMap[hash]) return colorMap[hash];
   return TYPE_COLORS[type || ''] || DEFAULT_COLOR;
 }
 
-export function ScatterPlot({ points, onPointClick, width = 900, height = 500 }: ScatterPlotProps) {
+export function ScatterPlot({ points, onPointClick, width = 900, height = 500, colorMap }: ScatterPlotProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [transform, setTransform] = useState({ scale: 1, offsetX: 0, offsetY: 0 });
@@ -84,7 +86,7 @@ export function ScatterPlot({ points, onPointClick, width = 900, height = 500 }:
       const p = points[i];
       const px = normalizeX(p.x);
       const py = normalizeY(p.y);
-      const color = getColor(p.memory_type);
+      const color = getColor(p.memory_type, p.content_hash, colorMap);
       const isHovered = i === hoveredIndex;
       const r = isHovered ? HOVER_RADIUS : POINT_RADIUS;
 

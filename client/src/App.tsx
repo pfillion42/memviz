@@ -10,6 +10,7 @@ import { Timeline } from './pages/Timeline';
 import { Tags } from './pages/Tags';
 import { Stale } from './pages/Stale';
 import { EmbeddingView } from './pages/EmbeddingView';
+import { ClusterView } from './pages/ClusterView';
 import { Logo } from './components/Logo';
 import { KeyboardHelp } from './components/KeyboardHelp';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -93,6 +94,9 @@ function AppContent() {
           <NavLink to="/embeddings" style={({ isActive }) => isActive ? activeStyle : navStyle}>
             Embeddings
           </NavLink>
+          <NavLink to="/clusters" style={({ isActive }) => isActive ? activeStyle : navStyle}>
+            Clusters
+          </NavLink>
           <NavLink to="/graph" style={({ isActive }) => isActive ? activeStyle : navStyle}>
             Graphe
           </NavLink>
@@ -142,6 +146,7 @@ function AppContent() {
           <Route path="/tags" element={<Tags />} />
           <Route path="/stale" element={<Stale />} />
           <Route path="/embeddings" element={<EmbeddingView />} />
+          <Route path="/clusters" element={<ClusterView />} />
           <Route path="/graph" element={<GraphView />} />
         </Routes>
       </main>

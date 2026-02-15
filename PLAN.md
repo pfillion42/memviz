@@ -164,11 +164,39 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Build client OK
 - Audit securite : lookup map SQL (corrige), pas de vulnerabilite specifique, points preexistants (rate-limit, helmet, zod) dans backlog Sprint 8.2
 
+## Sprint 13 - Clustering semantique automatique
+
+### 13.1 Extraire UnionFind en classe reutilisable - COMPLETE
+- Classe UnionFind exportee avec find(), union(), getClusters()
+- Refactoring /duplicates pour utiliser la classe (0 regression)
+
+### 13.2 Backend - Endpoint GET /api/memories/clusters - COMPLETE
+- Parametres : threshold (0-1, defaut 0.6), min_size (>= 2, defaut 2)
+- KNN vec0 50 voisins, Union-Find clustering, UMAP centroids
+- Cache 5min avec invalidation sur modifications
+- Validation 400 pour threshold hors [0,1] et min_size < 2
+- 8 tests backend
+
+### 13.3 Frontend - Page /clusters (ClusterView) - COMPLETE
+- Types Cluster et ClustersResponse dans types.ts
+- Hook useClusters(threshold, minSize) avec React Query
+- Page ClusterView : ScatterPlot (60%) + liste clusters (40%)
+- Sliders threshold (0.3-0.9) et min_size (2-10)
+- ScatterPlot : prop colorMap pour coloration par cluster (10 couleurs)
+- Route /clusters, NavLink entre Embeddings et Graphe
+- 8 tests frontend
+
+### Bilan Sprint 13
+- 8 tests backend + 8 tests frontend = 16 nouveaux tests
+- Total : 314 tests (188 serveur + 126 client), tous verts
+- Build client OK
+- Audit securite : pas de vulnerabilite specifique au sprint, points preexistants (rate-limit, helmet, zod) dans backlog Sprint 8.2
+
 ## Backlog - Fonctionnalites futures
 
 ### Exploration et comprehension
 - [x] Projection 2D des embeddings (UMAP) - vue espace vectoriel complet (Sprint 10)
-- [ ] Clustering automatique - grouper par proximite semantique
+- [x] Clustering automatique - grouper par proximite semantique (Sprint 13)
 
 ### Navigation et UX
 - [x] Mode clair / toggle theme (Sprint 9)
@@ -200,7 +228,7 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Embedding : all-MiniLM-L6-v2 (384 dims, cosine distance)
 - Injection de dependance : `createMemoriesRouter(db)` pour faciliter les tests
 - Frontend : React Query + React Router, hooks custom, theme sombre via CSS custom properties
-- Navigation : / (Dashboard), /timeline (Timeline), /memories (MemoryList), /memories/:hash (MemoryDetail), /duplicates (Duplicates), /tags (Tags), /stale (Stale), /embeddings (EmbeddingView), /graph (GraphView)
+- Navigation : / (Dashboard), /timeline (Timeline), /memories (MemoryList), /memories/:hash (MemoryDetail), /duplicates (Duplicates), /tags (Tags), /stale (Stale), /embeddings (EmbeddingView), /clusters (ClusterView), /graph (GraphView)
 - Embedder : @huggingface/transformers (all-MiniLM-L6-v2), injection de dependance pour tests
 - Graphe : react-force-graph-2d pour la visualisation force-directed
 - Projection : umap-js (Google PAIR) pour la projection 2D des embeddings, calcul serveur avec cache
@@ -225,3 +253,4 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 | 2026-02-14 | Sprint 10 projection 2D | Endpoint UMAP, ScatterPlot canvas, page /embeddings, 264 tests verts |
 | 2026-02-14 | Sprint 11 compteur acces | POST access, accessStats, auto-increment MemoryDetail, Dashboard UI, 280 tests verts |
 | 2026-02-14 | Sprint 12 usage stats | memory_access_log, GET usage-stats, UsageChart, toggle periode Dashboard, 298 tests verts |
+| 2026-02-15 | Sprint 13 clustering semantique | UnionFind classe, GET clusters, ClusterView, ScatterPlot colorMap, 314 tests verts |

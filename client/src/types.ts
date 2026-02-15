@@ -122,6 +122,21 @@ export interface UsageStatsResponse {
   accesses: UsageDataPoint[];
 }
 
+export interface Cluster {
+  id: number;
+  label: string;
+  size: number;
+  members: Memory[];
+  avg_similarity: number;
+  centroid: { x: number; y: number };
+}
+
+export interface ClustersResponse {
+  clusters: Cluster[];
+  total_clusters: number;
+  params: { threshold: number; min_size: number };
+}
+
 export interface ProjectionPoint {
   content_hash: string;
   x: number;
