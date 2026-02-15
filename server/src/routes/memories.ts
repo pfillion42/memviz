@@ -164,6 +164,117 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     });
   });
 
+  // POST /api/memories/bulk-delete - suppression en masse (soft delete)
+  router.post('/memories/bulk-delete', (req: Request, res: Response) => {
+    const { hashes } = req.body;
+
+    if (!hashes || !Array.isArray(hashes) || hashes.length === 0) {
+      res.status(400).json({ error: 'Le champ hashes (tableau non vide) est requis' });
+      return;
+    }
+
+    const now = Date.now() / 1000;
+    const placeholders = hashes.map(() => '?').join(',');
+
+    const result = db.prepare(`
+      UPDATE memories
+      SET deleted_at = ?
+      WHERE content_hash IN (${placeholders}) AND deleted_at IS NULL
+    `).run(now, ...hashes);
+
+    res.json({ deleted: result.changes });
+  });
+
+  // POST /api/memories/bulk-tag - ajout/retrait de tags en masse
+  router.post('/memories/bulk-tag', (req: Request, res: Response) => {
+    const { hashes, add_tags, remove_tags } = req.body;
+
+    if (!hashes || !Array.isArray(hashes) || hashes.length === 0) {
+      res.status(400).json({ error: 'Le champ hashes (tableau non vide) est requis' });
+      return;
+    }
+
+    if (!add_tags && !remove_tags) {
+      res.status(400).json({ error: 'Au moins add_tags ou remove_tags est requis' });
+      return;
+    }
+
+    const now = Date.now() / 1000;
+    const nowIso = new Date().toISOString();
+
+    let updated = 0;
+
+    const updateAll = db.transaction(() => {
+      for (const hash of hashes) {
+        const row = db.prepare(
+          'SELECT tags FROM memories WHERE content_hash = ? AND deleted_at IS NULL'
+        ).get(hash) as { tags: string | null } | undefined;
+
+        if (!row) continue;
+
+        // Parser les tags actuels
+        let currentTags = row.tags
+          ? row.tags.split(',').map(t => t.trim()).filter(Boolean)
+          : [];
+
+        // Ajouter les nouveaux tags (sans doublons)
+        if (add_tags && Array.isArray(add_tags)) {
+          for (const tag of add_tags) {
+            if (!currentTags.includes(tag)) {
+              currentTags.push(tag);
+            }
+          }
+        }
+
+        // Retirer les tags demandes
+        if (remove_tags && Array.isArray(remove_tags)) {
+          currentTags = currentTags.filter(t => !remove_tags.includes(t));
+        }
+
+        // Reconstruire la string CSV
+        const newTagsStr = currentTags.length > 0 ? currentTags.join(',') : null;
+
+        const result = db.prepare(`
+          UPDATE memories
+          SET tags = ?, updated_at = ?, updated_at_iso = ?
+          WHERE content_hash = ?
+        `).run(newTagsStr, now, nowIso, hash);
+
+        updated += result.changes;
+      }
+    });
+
+    updateAll();
+    res.json({ updated });
+  });
+
+  // POST /api/memories/bulk-type - changement de type en masse
+  router.post('/memories/bulk-type', (req: Request, res: Response) => {
+    const { hashes, memory_type } = req.body;
+
+    if (!hashes || !Array.isArray(hashes) || hashes.length === 0) {
+      res.status(400).json({ error: 'Le champ hashes (tableau non vide) est requis' });
+      return;
+    }
+
+    if (!memory_type) {
+      res.status(400).json({ error: 'Le champ memory_type est requis' });
+      return;
+    }
+
+    const now = Date.now() / 1000;
+    const nowIso = new Date().toISOString();
+    const placeholders = hashes.map(() => '?').join(',');
+
+    const result = db.prepare(`
+      UPDATE memories
+      SET memory_type = ?, updated_at = ?, updated_at_iso = ?
+      WHERE content_hash IN (${placeholders}) AND deleted_at IS NULL
+    `).run(memory_type, now, nowIso, ...hashes);
+
+    res.json({ updated: result.changes });
+  });
+
   // GET /api/memories/export - exporter toutes les memoires actives
   router.get('/memories/export', (_req: Request, res: Response) => {
     const rows = db.prepare(

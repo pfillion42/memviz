@@ -5,10 +5,19 @@ import App from '../src/App';
 beforeEach(() => {
   vi.restoreAllMocks();
   // Mock fetch pour eviter les erreurs reseau dans les tests
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-    ok: true,
-    json: () => Promise.resolve({ data: [], total: 0, limit: 20, offset: 0 }),
-  } as Response);
+  vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+    const urlStr = typeof url === 'string' ? url : url.toString();
+    if (urlStr.includes('/api/memories/stats')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ total: 0, byType: {}, byTag: {} }),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ data: [], total: 0, limit: 20, offset: 0 }),
+    } as Response);
+  });
 });
 
 describe('App', () => {
@@ -29,12 +38,10 @@ describe('App', () => {
     expect(screen.getByText('Graphe')).toBeDefined();
   });
 
-  it('charge la page MemoryList par defaut', async () => {
+  it('charge le Dashboard par defaut', async () => {
     render(<App />);
-    // MemoryList affiche "Chargement..." puis le contenu
     await waitFor(() => {
-      // Apres chargement, on devrait voir le message "aucune memoire" ou le tableau
-      expect(screen.getByLabelText('Recherche')).toBeDefined();
+      expect(screen.getByText('Memoires totales')).toBeDefined();
     });
   });
 });

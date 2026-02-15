@@ -603,3 +603,244 @@ describe('GET /api/memories - filtres avances', () => {
     expect(res.body.total).toBe(0);
   });
 });
+
+// --- POST /api/memories/bulk-delete ---
+describe('Operations en masse', () => {
+  describe('POST /api/memories/bulk-delete', () => {
+    it('supprime plusieurs memoires par hash (soft delete)', async () => {
+      const hashes = ['hash_ccc333', 'hash_import_001'];
+      const res = await request(app)
+        .post('/api/memories/bulk-delete')
+        .send({ hashes });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('deleted', 2);
+
+      // Verifier que les memoires ne sont plus accessibles
+      for (const hash of hashes) {
+        const detail = await request(app).get(`/api/memories/${hash}`);
+        expect(detail.status).toBe(404);
+      }
+
+      // Verifier qu'elles n'apparaissent plus dans la liste
+      const list = await request(app).get('/api/memories');
+      const listHashes = list.body.data.map((m: { content_hash: string }) => m.content_hash);
+      expect(listHashes).not.toContain('hash_ccc333');
+      expect(listHashes).not.toContain('hash_import_001');
+    });
+
+    it('ignore les hashes inexistants sans erreur', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-delete')
+        .send({ hashes: ['hash_inexistant1', 'hash_inexistant2'] });
+
+      expect(res.status).toBe(200);
+      expect(res.body.deleted).toBe(0);
+    });
+
+    it('ignore les memoires deja supprimees', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-delete')
+        .send({ hashes: ['hash_ddd444'] });
+
+      expect(res.status).toBe(200);
+      expect(res.body.deleted).toBe(0);
+    });
+
+    it('retourne 400 si body vide', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-delete')
+        .send({});
+
+      expect(res.status).toBe(400);
+    });
+
+    it('retourne 400 si hashes est un tableau vide', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-delete')
+        .send({ hashes: [] });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('retourne 400 si hashes n\'est pas un tableau', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-delete')
+        .send({ hashes: 'invalid' });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('POST /api/memories/bulk-tag', () => {
+    it('ajoute des tags a plusieurs memoires', async () => {
+      const hashes = ['hash_fff666', 'hash_ggg777'];
+      const res = await request(app)
+        .post('/api/memories/bulk-tag')
+        .send({ hashes, add_tags: ['nouveau-tag'] });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('updated', 2);
+
+      // Verifier que les tags ont ete ajoutes
+      for (const hash of hashes) {
+        const detail = await request(app).get(`/api/memories/${hash}`);
+        expect(detail.body.tags).toContain('nouveau-tag');
+      }
+    });
+
+    it('retire des tags de plusieurs memoires', async () => {
+      const hashes = ['hash_fff666', 'hash_ggg777'];
+      const res = await request(app)
+        .post('/api/memories/bulk-tag')
+        .send({ hashes, remove_tags: ['filtre'] });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('updated', 2);
+
+      // Verifier que le tag a ete retire
+      for (const hash of hashes) {
+        const detail = await request(app).get(`/api/memories/${hash}`);
+        expect(detail.body.tags).not.toContain('filtre');
+      }
+    });
+
+    it('ajoute et retire des tags en meme temps', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-tag')
+        .send({
+          hashes: ['hash_hhh888'],
+          add_tags: ['ajout-test'],
+          remove_tags: ['backend']
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.updated).toBe(1);
+
+      const detail = await request(app).get('/api/memories/hash_hhh888');
+      expect(detail.body.tags).toContain('ajout-test');
+      expect(detail.body.tags).not.toContain('backend');
+    });
+
+    it('gere les doublons : ne pas ajouter un tag deja present', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-tag')
+        .send({
+          hashes: ['hash_hhh888'],
+          add_tags: ['express'] // deja present
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.updated).toBe(1);
+
+      const detail = await request(app).get('/api/memories/hash_hhh888');
+      // Express ne doit apparaitre qu'une seule fois
+      const expressCount = detail.body.tags.filter((t: string) => t === 'express').length;
+      expect(expressCount).toBe(1);
+    });
+
+    it('retourne 400 si hashes vide', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-tag')
+        .send({ hashes: [], add_tags: ['tag'] });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('retourne 400 si ni add_tags ni remove_tags fourni', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-tag')
+        .send({ hashes: ['hash_aaa111'] });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('ignore les hashes inexistants sans erreur', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-tag')
+        .send({
+          hashes: ['hash_inexistant'],
+          add_tags: ['tag']
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.updated).toBe(0);
+    });
+
+    it('met a jour updated_at pour les memoires modifiees', async () => {
+      const before = await request(app).get('/api/memories/hash_bbb222');
+      const beforeUpdated = before.body.updated_at;
+
+      await request(app)
+        .post('/api/memories/bulk-tag')
+        .send({
+          hashes: ['hash_bbb222'],
+          add_tags: ['tag-horodatage']
+        });
+
+      const after = await request(app).get('/api/memories/hash_bbb222');
+      expect(after.body.updated_at).toBeGreaterThanOrEqual(beforeUpdated);
+    });
+  });
+
+  describe('POST /api/memories/bulk-type', () => {
+    it('change le type de plusieurs memoires', async () => {
+      const hashes = ['hash_aaa111', 'hash_bbb222'];
+      const res = await request(app)
+        .post('/api/memories/bulk-type')
+        .send({ hashes, memory_type: 'observation' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('updated', 2);
+
+      // Verifier que le type a ete change
+      for (const hash of hashes) {
+        const detail = await request(app).get(`/api/memories/${hash}`);
+        expect(detail.body.memory_type).toBe('observation');
+      }
+    });
+
+    it('retourne 400 si hashes vide', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-type')
+        .send({ hashes: [], memory_type: 'decision' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('retourne 400 si memory_type manquant', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-type')
+        .send({ hashes: ['hash_aaa111'] });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('ignore les hashes inexistants sans erreur', async () => {
+      const res = await request(app)
+        .post('/api/memories/bulk-type')
+        .send({
+          hashes: ['hash_inexistant'],
+          memory_type: 'decision'
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.updated).toBe(0);
+    });
+
+    it('met a jour updated_at pour les memoires modifiees', async () => {
+      const before = await request(app).get('/api/memories/hash_aaa111');
+      const beforeUpdated = before.body.updated_at;
+
+      await request(app)
+        .post('/api/memories/bulk-type')
+        .send({
+          hashes: ['hash_aaa111'],
+          memory_type: 'observation'
+        });
+
+      const after = await request(app).get('/api/memories/hash_aaa111');
+      expect(after.body.updated_at).toBeGreaterThanOrEqual(beforeUpdated);
+    });
+  });
+});

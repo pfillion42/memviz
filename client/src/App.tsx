@@ -62,10 +62,10 @@ function App() {
 
             <nav style={{ display: 'flex', gap: '2px', marginLeft: '8px' }}>
               <NavLink to="/" end style={({ isActive }) => isActive ? activeStyle : navStyle}>
-                Memoires
-              </NavLink>
-              <NavLink to="/dashboard" style={({ isActive }) => isActive ? activeStyle : navStyle}>
                 Dashboard
+              </NavLink>
+              <NavLink to="/memories" style={({ isActive }) => isActive ? activeStyle : navStyle}>
+                Memoires
               </NavLink>
               <NavLink to="/graph" style={({ isActive }) => isActive ? activeStyle : navStyle}>
                 Graphe
@@ -79,9 +79,9 @@ function App() {
 
           <main>
             <Routes>
-              <Route path="/" element={<MemoryList />} />
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/memories" element={<MemoryList />} />
               <Route path="/memories/:hash" element={<MemoryDetail />} />
-              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/graph" element={<GraphView />} />
             </Routes>
           </main>

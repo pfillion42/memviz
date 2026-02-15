@@ -91,7 +91,7 @@ export function MemoryDetail() {
 
   return (
     <div>
-      <Link to="/" style={{ color: 'var(--accent-primary-hover)', textDecoration: 'none', fontSize: '13px' }}>
+      <Link to="/memories" style={{ color: 'var(--accent-primary-hover)', textDecoration: 'none', fontSize: '13px' }}>
         &larr; Retour a la liste
       </Link>
 

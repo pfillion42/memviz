@@ -3,10 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useMemories } from '../hooks/useMemories';
 import { useSearch } from '../hooks/useSearch';
 import { useVectorSearch } from '../hooks/useVectorSearch';
+import { useBulkDelete, useBulkTag, useBulkType } from '../hooks/useBulkActions';
 import { SearchBar } from '../components/SearchBar';
 import { FilterPanel } from '../components/FilterPanel';
 import { TagBadge } from '../components/TagBadge';
 import { Pagination } from '../components/Pagination';
+import { BulkActionBar } from '../components/BulkActionBar';
 import type { Memory, MemoryFilters } from '../types';
 
 const PAGE_SIZE = 20;
@@ -33,6 +35,7 @@ export function MemoryList() {
   const [offset, setOffset] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('fts');
+  const [selectedHashes, setSelectedHashes] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<MemoryFilters>(() => {
     const initialFilters: MemoryFilters = {};
     const typeParam = searchParams.get('type');
@@ -54,6 +57,9 @@ export function MemoryList() {
   const memoriesQuery = useMemories({ limit: PAGE_SIZE, offset, ...filters });
   const ftsResult = useSearch(searchQuery);
   const vectorResult = useVectorSearch(searchQuery);
+  const bulkDelete = useBulkDelete();
+  const bulkTag = useBulkTag();
+  const bulkType = useBulkType();
 
   const searchResult = searchMode === 'vector' ? vectorResult : ftsResult;
   const activeQuery = isSearching ? searchResult : memoriesQuery;
@@ -93,6 +99,22 @@ export function MemoryList() {
 
   const activeFiltersCount = countActiveFilters();
 
+  const toggleSelectHash = useCallback((hash: string) => {
+    setSelectedHashes((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(hash)) {
+        newSet.delete(hash);
+      } else {
+        newSet.add(hash);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedHashes(new Set());
+  }, []);
+
   if (activeQuery.isLoading) {
     return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
   }
@@ -104,6 +126,29 @@ export function MemoryList() {
   const memories: MemoryWithSimilarity[] = activeQuery.data?.data ?? [];
   const total = isSearching ? memories.length : (memoriesQuery.data?.total ?? 0);
   const showSimilarity = isSearching && searchMode === 'vector';
+
+  const toggleSelectAll = () => {
+    if (selectedHashes.size === memories.length && memories.length > 0) {
+      setSelectedHashes(new Set());
+    } else {
+      setSelectedHashes(new Set(memories.map((m) => m.content_hash)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    await bulkDelete.mutateAsync({ hashes: Array.from(selectedHashes) });
+    setSelectedHashes(new Set());
+  };
+
+  const handleBulkAddTag = async (tag: string) => {
+    await bulkTag.mutateAsync({ hashes: Array.from(selectedHashes), add_tags: [tag] });
+    setSelectedHashes(new Set());
+  };
+
+  const handleBulkChangeType = async (type: string) => {
+    await bulkType.mutateAsync({ hashes: Array.from(selectedHashes), memory_type: type });
+    setSelectedHashes(new Set());
+  };
 
   return (
     <div>
@@ -171,6 +216,15 @@ export function MemoryList() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-default)' }}>
+                <th style={{ padding: '12px 16px', width: '40px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedHashes.size === memories.length && memories.length > 0}
+                    onChange={toggleSelectAll}
+                    aria-label="Selectionner tout"
+                    style={{ cursor: 'pointer' }}
+                  />
+                </th>
                 <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contenu</th>
                 <th style={{ padding: '12px 16px', width: '90px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
                 <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tags</th>
@@ -189,6 +243,15 @@ export function MemoryList() {
                   onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
                   onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
+                  <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedHashes.has(m.content_hash)}
+                      onChange={() => toggleSelectHash(m.content_hash)}
+                      aria-label={`Selectionner ${m.content_hash}`}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </td>
                   <td style={{ padding: '12px 16px' }}>
                     <Link
                       to={`/memories/${m.content_hash}`}
@@ -239,6 +302,16 @@ export function MemoryList() {
           limit={PAGE_SIZE}
           offset={offset}
           onPageChange={setOffset}
+        />
+      )}
+
+      {selectedHashes.size > 0 && (
+        <BulkActionBar
+          selectedHashes={Array.from(selectedHashes)}
+          onDelete={handleBulkDelete}
+          onAddTag={handleBulkAddTag}
+          onChangeType={handleBulkChangeType}
+          onClear={handleClearSelection}
         />
       )}
     </div>
