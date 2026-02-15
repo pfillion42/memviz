@@ -13,16 +13,18 @@ const MOCK_ACCESSES = [
 ];
 
 describe('UsageChart', () => {
-  it('affiche les barres de creation', () => {
+  it('affiche la ligne de creation', () => {
     render(<UsageChart creations={MOCK_CREATIONS} accesses={MOCK_ACCESSES} />);
-    const bars = screen.getAllByTestId('bar-creation');
-    expect(bars.length).toBe(2);
+    const line = screen.getByTestId('line-creation');
+    expect(line).toBeDefined();
+    expect(line.getAttribute('d')).toBeTruthy();
   });
 
-  it('affiche les barres d\'acces', () => {
+  it('affiche la ligne d\'acces', () => {
     render(<UsageChart creations={MOCK_CREATIONS} accesses={MOCK_ACCESSES} />);
-    const bars = screen.getAllByTestId('bar-access');
-    expect(bars.length).toBe(2);
+    const line = screen.getByTestId('line-access');
+    expect(line).toBeDefined();
+    expect(line.getAttribute('d')).toBeTruthy();
   });
 
   it('affiche la legende avec les 2 series', () => {
