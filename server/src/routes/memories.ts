@@ -71,6 +71,20 @@ function escapeLike(input: string): string {
 export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = {}): Router {
   const router = Router();
 
+  // Creer la table memory_access_log si elle n'existe pas (try/catch pour DB readonly)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS memory_access_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        content_hash TEXT NOT NULL,
+        accessed_at REAL NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_access_log_at ON memory_access_log(accessed_at);
+    `);
+  } catch {
+    // DB en lecture seule, la table n'existe peut-etre pas
+  }
+
   // GET /api/memories/vector-search - recherche par similarite vectorielle
   router.get('/memories/vector-search', async (req: Request, res: Response) => {
     const q = req.query.q as string | undefined;
@@ -376,6 +390,55 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     });
   });
 
+  // GET /api/memories/usage-stats - statistiques d'utilisation par periode
+  router.get('/memories/usage-stats', (req: Request, res: Response) => {
+    const period = (req.query.period as string) || 'day';
+    const validPeriods = ['day', 'week', 'month'];
+
+    if (!validPeriods.includes(period)) {
+      res.status(400).json({ error: 'Le parametre period doit etre day, week ou month' });
+      return;
+    }
+
+    // Lookup map pour les expressions SQL de groupement (securite : pas de concatenation dynamique)
+    const creationExprMap: Record<string, string> = {
+      day: "date(created_at, 'unixepoch')",
+      week: "strftime('%Y-W%W', created_at, 'unixepoch')",
+      month: "strftime('%Y-%m', created_at, 'unixepoch')",
+    };
+    const accessExprMap: Record<string, string> = {
+      day: "date(accessed_at, 'unixepoch')",
+      week: "strftime('%Y-W%W', accessed_at, 'unixepoch')",
+      month: "strftime('%Y-%m', accessed_at, 'unixepoch')",
+    };
+    const dateExpr = creationExprMap[period];
+    const accessDateExpr = accessExprMap[period];
+
+    // Creations par periode
+    const creations = db.prepare(`
+      SELECT ${dateExpr} as date, COUNT(*) as count
+      FROM memories
+      WHERE deleted_at IS NULL
+      GROUP BY date
+      ORDER BY date ASC
+    `).all() as { date: string; count: number }[];
+
+    // Acces par periode (depuis memory_access_log)
+    let accesses: { date: string; count: number }[] = [];
+    try {
+      accesses = db.prepare(`
+        SELECT ${accessDateExpr} as date, COUNT(*) as count
+        FROM memory_access_log
+        GROUP BY date
+        ORDER BY date ASC
+      `).all() as { date: string; count: number }[];
+    } catch {
+      // Table absente
+    }
+
+    res.json({ period, creations, accesses });
+  });
+
   // POST /api/memories/bulk-delete - suppression en masse (soft delete)
   router.post('/memories/bulk-delete', (req: Request, res: Response) => {
     const { hashes } = req.body;
@@ -650,6 +713,15 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
       SET metadata = ?
       WHERE content_hash = ?
     `).run(JSON.stringify(metadata), hash);
+
+    // Enregistrer l'acces dans le log
+    try {
+      db.prepare(`
+        INSERT INTO memory_access_log (content_hash, accessed_at) VALUES (?, ?)
+      `).run(hash, now);
+    } catch {
+      // Table absente (DB readonly sans migration), on ignore
+    }
 
     res.json({
       content_hash: hash,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { Dashboard } from '../src/pages/Dashboard';
@@ -18,6 +18,35 @@ const MOCK_STATS = {
     ],
   },
 };
+
+const MOCK_USAGE = {
+  period: 'day',
+  creations: [
+    { date: '2026-02-13', count: 1 },
+    { date: '2026-02-14', count: 6 },
+  ],
+  accesses: [
+    { date: '2026-02-13', count: 2 },
+    { date: '2026-02-14', count: 3 },
+  ],
+};
+
+// Mock fetch qui differentie les URLs (stats vs usage-stats)
+function mockFetchAll(statsOverride?: Record<string, unknown>) {
+  return vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = typeof input === 'string' ? input : (input as Request).url;
+    if (url.includes('usage-stats')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(MOCK_USAGE),
+      } as Response);
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(statsOverride || MOCK_STATS),
+    } as Response);
+  });
+}
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -46,11 +75,7 @@ describe('Dashboard', () => {
   });
 
   it('affiche le total de memoires', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(MOCK_STATS),
-    } as Response);
-
+    mockFetchAll();
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
@@ -59,11 +84,7 @@ describe('Dashboard', () => {
   });
 
   it('affiche la repartition par type', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(MOCK_STATS),
-    } as Response);
-
+    mockFetchAll();
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
@@ -74,11 +95,7 @@ describe('Dashboard', () => {
   });
 
   it('affiche les tags les plus utilises', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(MOCK_STATS),
-    } as Response);
-
+    mockFetchAll();
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
@@ -88,11 +105,7 @@ describe('Dashboard', () => {
   });
 
   it('affiche les boutons export et import', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(MOCK_STATS),
-    } as Response);
-
+    mockFetchAll();
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
@@ -102,11 +115,7 @@ describe('Dashboard', () => {
   });
 
   it('affiche la carte Acces totaux', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(MOCK_STATS),
-    } as Response);
-
+    mockFetchAll();
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
@@ -116,11 +125,7 @@ describe('Dashboard', () => {
   });
 
   it('affiche la section Memoires les plus consultees', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(MOCK_STATS),
-    } as Response);
-
+    mockFetchAll();
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
@@ -129,11 +134,7 @@ describe('Dashboard', () => {
   });
 
   it('affiche les barres pour les top memoires', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(MOCK_STATS),
-    } as Response);
-
+    mockFetchAll();
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
@@ -152,15 +153,50 @@ describe('Dashboard', () => {
         topAccessed: [],
       },
     };
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(statsZero),
-    } as Response);
-
+    mockFetchAll(statsZero);
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(screen.getByText(/acces totaux/i)).toBeDefined();
+    });
+  });
+
+  it('affiche la section Statistiques d\'utilisation', async () => {
+    mockFetchAll();
+    render(<Dashboard />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText(/statistiques d'utilisation/i)).toBeDefined();
+    });
+  });
+
+  it('affiche le toggle jour/semaine/mois', async () => {
+    mockFetchAll();
+    render(<Dashboard />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText('Jour')).toBeDefined();
+      expect(screen.getByText('Semaine')).toBeDefined();
+      expect(screen.getByText('Mois')).toBeDefined();
+    });
+  });
+
+  it('le toggle change la periode', async () => {
+    const fetchSpy = mockFetchAll();
+    render(<Dashboard />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText('Semaine')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Semaine'));
+
+    await waitFor(() => {
+      const calls = fetchSpy.mock.calls.map(c => {
+        const input = c[0];
+        return typeof input === 'string' ? input : (input as Request).url;
+      });
+      expect(calls.some(url => url.includes('period=week'))).toBe(true);
     });
   });
 

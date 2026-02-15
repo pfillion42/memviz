@@ -1,6 +1,9 @@
 import { useState, useRef } from 'react';
 import { useStats } from '../hooks/useStats';
+import { useUsageStats } from '../hooks/useUsageStats';
 import { useQueryClient } from '@tanstack/react-query';
+import { UsageChart } from '../components/UsageChart';
+import type { UsagePeriod } from '../types';
 
 const cardStyle = (borderColor: string): React.CSSProperties => ({
   padding: '24px',
@@ -24,6 +27,8 @@ export function Dashboard() {
   const queryClient = useQueryClient();
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [usagePeriod, setUsagePeriod] = useState<UsagePeriod>('day');
+  const usageQuery = useUsageStats(usagePeriod);
 
   if (statsQuery.isLoading) {
     return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
@@ -263,6 +268,59 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Statistiques d'utilisation */}
+      <div style={{
+        marginTop: '24px',
+        backgroundColor: 'var(--bg-surface)',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-default)',
+        padding: '20px',
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '16px',
+        }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+            Statistiques d'utilisation
+          </h3>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {(['day', 'week', 'month'] as UsagePeriod[]).map(p => (
+              <button
+                key={p}
+                onClick={() => setUsagePeriod(p)}
+                style={{
+                  padding: '4px 12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  transition: 'all var(--transition-fast)',
+                  backgroundColor: usagePeriod === p ? 'var(--accent-primary)' : 'var(--bg-elevated)',
+                  color: usagePeriod === p ? 'white' : 'var(--text-secondary)',
+                }}
+              >
+                {p === 'day' ? 'Jour' : p === 'week' ? 'Semaine' : 'Mois'}
+              </button>
+            ))}
+          </div>
+        </div>
+        {usageQuery.isLoading && (
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Chargement...</p>
+        )}
+        {usageQuery.isError && (
+          <p style={{ color: 'var(--error)', fontSize: '13px' }}>Erreur lors du chargement.</p>
+        )}
+        {usageQuery.data && (
+          <UsageChart
+            creations={usageQuery.data.creations}
+            accesses={usageQuery.data.accesses}
+          />
+        )}
+      </div>
 
       {/* Import/Export */}
       <div style={{

@@ -1778,3 +1778,181 @@ describe('GET /api/memories/projection', () => {
     }
   });
 });
+
+// --- POST /api/memories/:hash/access - Insertion dans memory_access_log ---
+describe('POST /api/memories/:hash/access - memory_access_log', () => {
+  let logDb: DatabaseType;
+  let logApp: express.Express;
+
+  beforeAll(() => {
+    logDb = createTestDb();
+    logApp = express();
+    logApp.use(express.json());
+    logApp.use('/api', createMemoriesRouter(logDb, { embedFn: mockEmbedFn }));
+  });
+
+  afterAll(() => {
+    logDb.close();
+  });
+
+  it('insere une ligne dans memory_access_log apres POST /access', async () => {
+    const countBefore = (logDb.prepare('SELECT COUNT(*) as c FROM memory_access_log').get() as { c: number }).c;
+
+    await request(logApp).post('/api/memories/hash_aaa111/access');
+
+    const countAfter = (logDb.prepare('SELECT COUNT(*) as c FROM memory_access_log').get() as { c: number }).c;
+    expect(countAfter).toBe(countBefore + 1);
+  });
+
+  it('memory_access_log contient le bon content_hash et accessed_at', async () => {
+    // Vider les logs du seed pour ce test
+    const beforeCount = (logDb.prepare('SELECT COUNT(*) as c FROM memory_access_log').get() as { c: number }).c;
+
+    await request(logApp).post('/api/memories/hash_bbb222/access');
+
+    const lastLog = logDb.prepare(
+      'SELECT * FROM memory_access_log ORDER BY id DESC LIMIT 1'
+    ).get() as { content_hash: string; accessed_at: number };
+
+    expect(lastLog.content_hash).toBe('hash_bbb222');
+    expect(typeof lastLog.accessed_at).toBe('number');
+    expect(lastLog.accessed_at).toBeGreaterThan(0);
+  });
+
+  it('multiples appels POST /access creent plusieurs lignes', async () => {
+    const countBefore = (logDb.prepare(
+      "SELECT COUNT(*) as c FROM memory_access_log WHERE content_hash = 'hash_eee555'"
+    ).get() as { c: number }).c;
+
+    await request(logApp).post('/api/memories/hash_eee555/access');
+    await request(logApp).post('/api/memories/hash_eee555/access');
+    await request(logApp).post('/api/memories/hash_eee555/access');
+
+    const countAfter = (logDb.prepare(
+      "SELECT COUNT(*) as c FROM memory_access_log WHERE content_hash = 'hash_eee555'"
+    ).get() as { c: number }).c;
+    expect(countAfter).toBe(countBefore + 3);
+  });
+});
+
+// --- GET /api/memories/usage-stats - Statistiques d'utilisation par periode ---
+describe('GET /api/memories/usage-stats', () => {
+  let usageDb: DatabaseType;
+  let usageApp: express.Express;
+
+  beforeAll(() => {
+    usageDb = createTestDb();
+    usageApp = express();
+    usageApp.use(express.json());
+    usageApp.use('/api', createMemoriesRouter(usageDb, { embedFn: mockEmbedFn }));
+  });
+
+  afterAll(() => {
+    usageDb.close();
+  });
+
+  it('retourne period "day" par defaut', async () => {
+    const res = await request(usageApp).get('/api/memories/usage-stats');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('period', 'day');
+    expect(res.body).toHaveProperty('creations');
+    expect(res.body).toHaveProperty('accesses');
+  });
+
+  it('creations contient les dates groupees par jour', async () => {
+    // Seed : 1 memoire le 2026-02-13 (hash_fff666), 6 memoires le 2026-02-14
+    // (hash_aaa111, bbb222, ccc333, eee555, hhh888, ggg777) - hash_ddd444 deleted
+    const res = await request(usageApp).get('/api/memories/usage-stats?period=day');
+    expect(res.status).toBe(200);
+
+    const creations = res.body.creations;
+    expect(Array.isArray(creations)).toBe(true);
+    expect(creations.length).toBeGreaterThanOrEqual(2);
+
+    // Verifier la presence des 2 jours
+    const feb13 = creations.find((c: { date: string }) => c.date === '2026-02-13');
+    const feb14 = creations.find((c: { date: string }) => c.date === '2026-02-14');
+    expect(feb13).toBeDefined();
+    expect(feb13.count).toBe(1);
+    expect(feb14).toBeDefined();
+    expect(feb14.count).toBe(6);
+  });
+
+  it('accesses contient les dates groupees par jour', async () => {
+    // Seed access_log : 2 acces le 2026-02-13, 3 acces le 2026-02-14
+    const res = await request(usageApp).get('/api/memories/usage-stats?period=day');
+    expect(res.status).toBe(200);
+
+    const accesses = res.body.accesses;
+    expect(Array.isArray(accesses)).toBe(true);
+    expect(accesses.length).toBeGreaterThanOrEqual(2);
+
+    const feb13 = accesses.find((a: { date: string }) => a.date === '2026-02-13');
+    const feb14 = accesses.find((a: { date: string }) => a.date === '2026-02-14');
+    expect(feb13).toBeDefined();
+    expect(feb13.count).toBe(2);
+    expect(feb14).toBeDefined();
+    expect(feb14.count).toBe(3);
+  });
+
+  it('period=week groupe par semaine', async () => {
+    const res = await request(usageApp).get('/api/memories/usage-stats?period=week');
+    expect(res.status).toBe(200);
+    expect(res.body.period).toBe('week');
+
+    const creations = res.body.creations;
+    expect(Array.isArray(creations)).toBe(true);
+    expect(creations.length).toBeGreaterThan(0);
+    // Le format semaine doit contenir "-W"
+    expect(creations[0].date).toMatch(/^\d{4}-W\d{2}$/);
+  });
+
+  it('period=month groupe par mois', async () => {
+    const res = await request(usageApp).get('/api/memories/usage-stats?period=month');
+    expect(res.status).toBe(200);
+    expect(res.body.period).toBe('month');
+
+    const creations = res.body.creations;
+    expect(Array.isArray(creations)).toBe(true);
+    expect(creations.length).toBeGreaterThan(0);
+    // Le format mois doit etre YYYY-MM
+    expect(creations[0].date).toMatch(/^\d{4}-\d{2}$/);
+  });
+
+  it('period invalide retourne 400', async () => {
+    const res = await request(usageApp).get('/api/memories/usage-stats?period=invalid');
+    expect(res.status).toBe(400);
+  });
+
+  it('creations et accesses sont tries par date ASC', async () => {
+    const res = await request(usageApp).get('/api/memories/usage-stats?period=day');
+    expect(res.status).toBe(200);
+
+    const creationDates = res.body.creations.map((c: { date: string }) => c.date);
+    for (let i = 1; i < creationDates.length; i++) {
+      expect(creationDates[i] >= creationDates[i - 1]).toBe(true);
+    }
+
+    const accessDates = res.body.accesses.map((a: { date: string }) => a.date);
+    for (let i = 1; i < accessDates.length; i++) {
+      expect(accessDates[i] >= accessDates[i - 1]).toBe(true);
+    }
+  });
+
+  it('reponse vide si aucune donnee dans access_log mais creations presentes', async () => {
+    // Creer une DB fraiche sans access_log
+    const emptyLogDb = createTestDb();
+    emptyLogDb.exec('DELETE FROM memory_access_log');
+
+    const emptyLogApp = express();
+    emptyLogApp.use(express.json());
+    emptyLogApp.use('/api', createMemoriesRouter(emptyLogDb, { embedFn: mockEmbedFn }));
+
+    const res = await request(emptyLogApp).get('/api/memories/usage-stats?period=day');
+    expect(res.status).toBe(200);
+    expect(res.body.accesses).toHaveLength(0);
+    expect(res.body.creations.length).toBeGreaterThan(0);
+
+    emptyLogDb.close();
+  });
+});

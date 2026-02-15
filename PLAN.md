@@ -131,6 +131,39 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Build client OK
 - Audit securite : pas de vulnerabilite specifique au sprint, points preexistants (rate-limit, validation zod) dans backlog Sprint 8.2
 
+## Sprint 12 - Statistiques d'utilisation par periode
+
+### 12.1 Backend - Table memory_access_log + modifier POST /access - COMPLETE
+- Table memory_access_log (id, content_hash, accessed_at) avec index
+- CREATE TABLE IF NOT EXISTS au demarrage de createMemoriesRouter (try/catch readonly)
+- INSERT dans memory_access_log apres chaque POST /:hash/access
+- 3 tests backend (insertion, content_hash/accessed_at, multiples appels)
+
+### 12.2 Backend - GET /api/memories/usage-stats - COMPLETE
+- Endpoint GET /api/memories/usage-stats?period=day|week|month
+- Creations groupees par periode (day/week/month) depuis memories
+- Acces groupes par periode depuis memory_access_log
+- Lookup map pour expressions SQL (securite : pas de concatenation dynamique)
+- Validation period avec 400 si invalide
+- 8 tests backend (period defaut, creations jour, accesses jour, week, month, invalide, tri ASC, vide)
+
+### 12.3 Frontend - Types, hook, composant UsageChart - COMPLETE
+- Types : UsagePeriod, UsageDataPoint, UsageStatsResponse dans types.ts
+- Hook : useUsageStats(period) avec React Query
+- Composant : UsageChart avec barres CSS (creations + acces), legende, responsive
+- 4 tests frontend (barres creation, barres acces, legende, donnees vides)
+
+### 12.4 Frontend - Integration Dashboard - COMPLETE
+- Toggle 3 boutons (Jour/Semaine/Mois) avec state local
+- Section "Statistiques d'utilisation" apres "Memoires les plus consultees"
+- 3 tests frontend (section, toggle, changement periode)
+
+### Bilan Sprint 12
+- 11 tests backend + 7 tests frontend = 18 nouveaux tests
+- Total : 298 tests (180 serveur + 118 client), tous verts
+- Build client OK
+- Audit securite : lookup map SQL (corrige), pas de vulnerabilite specifique, points preexistants (rate-limit, helmet, zod) dans backlog Sprint 8.2
+
 ## Backlog - Fonctionnalites futures
 
 ### Exploration et comprehension
@@ -151,6 +184,7 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 
 ### Statistiques et monitoring
 - [x] Compteur d'acces memoire (hit count) avec statistiques d'utilisation sur le Dashboard (Sprint 11)
+- [x] Statistiques d'utilisation par periode (creations + acces par jour/semaine/mois) (Sprint 12)
 
 ### Qualite
 - [ ] Tests E2E (Playwright/Cypress)
@@ -190,3 +224,4 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 | 2026-02-14 | Sprint 9 theme + obsoletes | Toggle dark/light, page memoires obsoletes, 248 tests verts |
 | 2026-02-14 | Sprint 10 projection 2D | Endpoint UMAP, ScatterPlot canvas, page /embeddings, 264 tests verts |
 | 2026-02-14 | Sprint 11 compteur acces | POST access, accessStats, auto-increment MemoryDetail, Dashboard UI, 280 tests verts |
+| 2026-02-14 | Sprint 12 usage stats | memory_access_log, GET usage-stats, UsageChart, toggle periode Dashboard, 298 tests verts |

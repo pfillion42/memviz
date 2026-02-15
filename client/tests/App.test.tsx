@@ -23,6 +23,12 @@ beforeEach(() => {
   // Mock fetch pour eviter les erreurs reseau dans les tests
   vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
     const urlStr = typeof url === 'string' ? url : url.toString();
+    if (urlStr.includes('/api/memories/usage-stats')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ period: 'day', creations: [], accesses: [] }),
+      } as Response);
+    }
     if (urlStr.includes('/api/memories/stats')) {
       return Promise.resolve({
         ok: true,

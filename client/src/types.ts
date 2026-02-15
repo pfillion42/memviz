@@ -109,6 +109,19 @@ export interface TimelineResponse {
   total: number;
 }
 
+export type UsagePeriod = 'day' | 'week' | 'month';
+
+export interface UsageDataPoint {
+  date: string;
+  count: number;
+}
+
+export interface UsageStatsResponse {
+  period: UsagePeriod;
+  creations: UsageDataPoint[];
+  accesses: UsageDataPoint[];
+}
+
 export interface ProjectionPoint {
   content_hash: string;
   x: number;
