@@ -64,3 +64,12 @@ export interface FullGraphResponse {
   nodes: GraphNode[];
   links: GraphLink[];
 }
+
+export interface MemoryFilters {
+  type?: string;
+  tags?: string[];
+  from?: string;
+  to?: string;
+  quality_min?: number;
+  quality_max?: number;
+}

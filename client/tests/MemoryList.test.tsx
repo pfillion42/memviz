@@ -130,4 +130,17 @@ describe('MemoryList', () => {
       expect(screen.getByText(/erreur/i)).toBeDefined();
     });
   });
+
+  it('affiche le panneau de filtres', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(MOCK_RESPONSE),
+    } as Response);
+
+    render(<MemoryList />, { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByText('Filtres')).toBeDefined();
+    });
+  });
 });

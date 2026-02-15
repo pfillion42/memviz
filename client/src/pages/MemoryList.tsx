@@ -1,12 +1,13 @@
 import { useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMemories } from '../hooks/useMemories';
 import { useSearch } from '../hooks/useSearch';
 import { useVectorSearch } from '../hooks/useVectorSearch';
 import { SearchBar } from '../components/SearchBar';
+import { FilterPanel } from '../components/FilterPanel';
 import { TagBadge } from '../components/TagBadge';
 import { Pagination } from '../components/Pagination';
-import type { Memory } from '../types';
+import type { Memory, MemoryFilters } from '../types';
 
 const PAGE_SIZE = 20;
 
@@ -28,12 +29,29 @@ const toggleBtn = (active: boolean): React.CSSProperties => ({
 });
 
 export function MemoryList() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [offset, setOffset] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('fts');
+  const [filters, setFilters] = useState<MemoryFilters>(() => {
+    const initialFilters: MemoryFilters = {};
+    const typeParam = searchParams.get('type');
+    const tagsParam = searchParams.get('tags');
+    const fromParam = searchParams.get('from');
+    const toParam = searchParams.get('to');
+    const qualityMinParam = searchParams.get('quality_min');
+    const qualityMaxParam = searchParams.get('quality_max');
+    if (typeParam) initialFilters.type = typeParam;
+    if (tagsParam) initialFilters.tags = tagsParam.split(',');
+    if (fromParam) initialFilters.from = fromParam;
+    if (toParam) initialFilters.to = toParam;
+    if (qualityMinParam) initialFilters.quality_min = parseFloat(qualityMinParam);
+    if (qualityMaxParam) initialFilters.quality_max = parseFloat(qualityMaxParam);
+    return initialFilters;
+  });
 
   const isSearching = searchQuery.length >= 2;
-  const memoriesQuery = useMemories({ limit: PAGE_SIZE, offset });
+  const memoriesQuery = useMemories({ limit: PAGE_SIZE, offset, ...filters });
   const ftsResult = useSearch(searchQuery);
   const vectorResult = useVectorSearch(searchQuery);
 
@@ -44,6 +62,36 @@ export function MemoryList() {
     setSearchQuery(value);
     setOffset(0);
   }, []);
+
+  const handleApplyFilters = useCallback((newFilters: MemoryFilters) => {
+    setFilters(newFilters);
+    setOffset(0);
+
+    // Synchroniser avec l'URL
+    const params = new URLSearchParams();
+    if (newFilters.type) params.set('type', newFilters.type);
+    if (newFilters.tags && newFilters.tags.length > 0) params.set('tags', newFilters.tags.join(','));
+    if (newFilters.from) params.set('from', newFilters.from);
+    if (newFilters.to) params.set('to', newFilters.to);
+    if (newFilters.quality_min !== undefined) params.set('quality_min', String(newFilters.quality_min));
+    if (newFilters.quality_max !== undefined) params.set('quality_max', String(newFilters.quality_max));
+
+    setSearchParams(params);
+  }, [setSearchParams]);
+
+  // Compter les filtres actifs
+  const countActiveFilters = () => {
+    let count = 0;
+    if (filters.type) count++;
+    if (filters.tags && filters.tags.length > 0) count++;
+    if (filters.from) count++;
+    if (filters.to) count++;
+    if (filters.quality_min !== undefined && filters.quality_min > 0) count++;
+    if (filters.quality_max !== undefined && filters.quality_max < 1) count++;
+    return count;
+  };
+
+  const activeFiltersCount = countActiveFilters();
 
   if (activeQuery.isLoading) {
     return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
@@ -59,7 +107,7 @@ export function MemoryList() {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div style={{ flex: 1 }}>
           <SearchBar
             value={searchQuery}
@@ -88,6 +136,24 @@ export function MemoryList() {
           >
             Vectoriel
           </button>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '20px', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <FilterPanel filters={filters} onApply={handleApplyFilters} />
+          {activeFiltersCount > 0 && (
+            <span style={{
+              padding: '2px 8px',
+              fontSize: '11px',
+              fontWeight: 600,
+              backgroundColor: 'var(--accent-primary)',
+              color: 'white',
+              borderRadius: 'var(--radius-full)',
+            }}>
+              {activeFiltersCount} filtre{activeFiltersCount > 1 ? 's' : ''} actif{activeFiltersCount > 1 ? 's' : ''}
+            </span>
+          )}
         </div>
       </div>
 

@@ -207,10 +207,9 @@ describe('GET /api/tags', () => {
 
   it('exclut les tags des memoires supprimees', async () => {
     const res = await request(app).get('/api/tags');
-    // hash_ddd444 a le tag 'test' et est supprime
-    // Mais le tag 'test' n'existe pas dans d'autres memoires actives (seed actuel)
-    // Verifier que le tag n'est present que dans les memoires actives
-    expect(res.body.data).not.toContain('test');
+    // hash_ddd444 est supprime mais nous avons maintenant d'autres memoires avec 'test'
+    // Donc le tag 'test' sera present (hash_fff666 et hash_ggg777 ont le tag 'test')
+    expect(res.body.data).toContain('test');
   });
 });
 
@@ -466,5 +465,141 @@ describe('POST /api/memories/import', () => {
   it('retourne 400 si memories n\'est pas un tableau', async () => {
     const res = await request(app).post('/api/memories/import').send({ memories: 'invalid' });
     expect(res.status).toBe(400);
+  });
+});
+
+// --- GET /api/memories - filtres avances ---
+describe('GET /api/memories - filtres avances', () => {
+  it('filtre par type : retourne seulement les notes', async () => {
+    const res = await request(app).get('/api/memories?type=note');
+    expect(res.status).toBe(200);
+    expect(res.body.data.every((m: { memory_type: string }) => m.memory_type === 'note')).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('filtre par type : retourne seulement les decisions', async () => {
+    const res = await request(app).get('/api/memories?type=decision');
+    expect(res.status).toBe(200);
+    expect(res.body.data.every((m: { memory_type: string }) => m.memory_type === 'decision')).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('filtre par tag single : retourne memoires avec le tag express', async () => {
+    const res = await request(app).get('/api/memories?tags=express');
+    expect(res.status).toBe(200);
+    expect(res.body.data.every(
+      (m: { tags: string[] }) => m.tags.includes('express')
+    )).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('filtre par tags multiples : OR logique (express,typescript)', async () => {
+    const res = await request(app).get('/api/memories?tags=express,typescript');
+    expect(res.status).toBe(200);
+    expect(res.body.data.every(
+      (m: { tags: string[] }) => m.tags.includes('express') || m.tags.includes('typescript')
+    )).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('filtre par date from : memoires apres une date', async () => {
+    const fromDate = '2026-02-14T17:00:00.000Z';
+    const fromTimestamp = new Date(fromDate).getTime() / 1000;
+
+    const res = await request(app).get(`/api/memories?from=${fromDate}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.every(
+      (m: { created_at: number }) => m.created_at >= fromTimestamp
+    )).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('filtre par date to : memoires avant une date', async () => {
+    const toDate = '2026-02-14T17:00:00.000Z';
+    const toTimestamp = new Date(toDate).getTime() / 1000;
+
+    const res = await request(app).get(`/api/memories?to=${toDate}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.every(
+      (m: { created_at: number }) => m.created_at <= toTimestamp
+    )).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('filtre par date range : from et to', async () => {
+    const fromDate = '2026-02-14T16:50:00.000Z';
+    const toDate = '2026-02-14T17:05:00.000Z';
+    const fromTimestamp = new Date(fromDate).getTime() / 1000;
+    const toTimestamp = new Date(toDate).getTime() / 1000;
+
+    const res = await request(app).get(`/api/memories?from=${fromDate}&to=${toDate}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.every(
+      (m: { created_at: number }) => m.created_at >= fromTimestamp && m.created_at <= toTimestamp
+    )).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('filtre par quality_min : retourne memoires de haute qualite', async () => {
+    const res = await request(app).get('/api/memories?quality_min=0.8');
+    expect(res.status).toBe(200);
+    expect(res.body.data.every(
+      (m: { metadata: { quality_score?: number } }) =>
+        m.metadata && typeof m.metadata === 'object' &&
+        (m.metadata.quality_score ?? 0) >= 0.8
+    )).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('filtre par quality_max : retourne memoires de basse qualite', async () => {
+    const res = await request(app).get('/api/memories?quality_max=0.5');
+    expect(res.status).toBe(200);
+    expect(res.body.data.every(
+      (m: { metadata: { quality_score?: number } }) =>
+        m.metadata && typeof m.metadata === 'object' &&
+        (m.metadata.quality_score ?? 0) <= 0.5
+    )).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('combinaison de filtres : type + tags', async () => {
+    const res = await request(app).get('/api/memories?type=note&tags=express');
+    expect(res.status).toBe(200);
+    expect(res.body.data.every(
+      (m: { memory_type: string; tags: string[] }) =>
+        m.memory_type === 'note' && m.tags.includes('express')
+    )).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+  });
+
+  it('filtres + pagination : total reflete le total filtre', async () => {
+    const resAll = await request(app).get('/api/memories?type=note');
+    const totalNotes = resAll.body.total;
+
+    const resPaginated = await request(app).get('/api/memories?type=note&limit=2');
+    expect(resPaginated.body.total).toBe(totalNotes);
+    expect(resPaginated.body.data.length).toBeLessThanOrEqual(2);
+  });
+
+  it('params vides ignores : pas de filtre avec type vide', async () => {
+    const resAll = await request(app).get('/api/memories');
+    const resEmpty = await request(app).get('/api/memories?type=');
+
+    expect(resEmpty.status).toBe(200);
+    expect(resEmpty.body.total).toBe(resAll.body.total);
+  });
+
+  it('filtre par type inexistant : retourne tableau vide', async () => {
+    const res = await request(app).get('/api/memories?type=nonexistent');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(0);
+    expect(res.body.total).toBe(0);
+  });
+
+  it('filtre par tag inexistant : retourne tableau vide', async () => {
+    const res = await request(app).get('/api/memories?tags=nonexistent');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(0);
+    expect(res.body.total).toBe(0);
   });
 });

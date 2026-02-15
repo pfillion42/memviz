@@ -269,16 +269,80 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 200);
     const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
 
-    const totalRow = db.prepare(
-      'SELECT COUNT(*) as total FROM memories WHERE deleted_at IS NULL'
-    ).get() as { total: number };
+    // Extraction des parametres de filtrage
+    const typeFilter = (req.query.type as string)?.trim() || '';
+    const tagsFilter = (req.query.tags as string)?.trim() || '';
+    const fromFilter = (req.query.from as string)?.trim() || '';
+    const toFilter = (req.query.to as string)?.trim() || '';
+    const qualityMinFilter = req.query.quality_min ? parseFloat(req.query.quality_min as string) : null;
+    const qualityMaxFilter = req.query.quality_max ? parseFloat(req.query.quality_max as string) : null;
 
+    // Construction dynamique de la clause WHERE
+    const whereClauses: string[] = ['deleted_at IS NULL'];
+    const whereParams: unknown[] = [];
+
+    // Filtre par type
+    if (typeFilter) {
+      whereClauses.push('memory_type = ?');
+      whereParams.push(typeFilter);
+    }
+
+    // Filtre par tags (OR logique pour tags multiples)
+    if (tagsFilter) {
+      const tags = tagsFilter.split(',').map(t => t.trim()).filter(Boolean);
+      if (tags.length > 0) {
+        const tagConditions = tags.map(() => 'tags LIKE ?').join(' OR ');
+        whereClauses.push(`(${tagConditions})`);
+        for (const tag of tags) {
+          whereParams.push(`%${tag}%`);
+        }
+      }
+    }
+
+    // Filtre par date from
+    if (fromFilter) {
+      const fromTimestamp = new Date(fromFilter).getTime() / 1000;
+      if (!isNaN(fromTimestamp)) {
+        whereClauses.push('created_at >= ?');
+        whereParams.push(fromTimestamp);
+      }
+    }
+
+    // Filtre par date to
+    if (toFilter) {
+      const toTimestamp = new Date(toFilter).getTime() / 1000;
+      if (!isNaN(toTimestamp)) {
+        whereClauses.push('created_at <= ?');
+        whereParams.push(toTimestamp);
+      }
+    }
+
+    // Filtre par quality_min
+    if (qualityMinFilter !== null && !isNaN(qualityMinFilter)) {
+      whereClauses.push("json_extract(metadata, '$.quality_score') >= ?");
+      whereParams.push(qualityMinFilter);
+    }
+
+    // Filtre par quality_max
+    if (qualityMaxFilter !== null && !isNaN(qualityMaxFilter)) {
+      whereClauses.push("json_extract(metadata, '$.quality_score') <= ?");
+      whereParams.push(qualityMaxFilter);
+    }
+
+    const whereClause = whereClauses.join(' AND ');
+
+    // Comptage total avec filtres
+    const totalRow = db.prepare(
+      `SELECT COUNT(*) as total FROM memories WHERE ${whereClause}`
+    ).get(...whereParams) as { total: number };
+
+    // Selection avec filtres + pagination
     const rows = db.prepare(`
       SELECT * FROM memories
-      WHERE deleted_at IS NULL
+      WHERE ${whereClause}
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
-    `).all(limit, offset) as MemoryRow[];
+    `).all(...whereParams, limit, offset) as MemoryRow[];
 
     res.json({
       data: rows.map(parseMemory),
