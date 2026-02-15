@@ -15,6 +15,29 @@
   la memoire vectorielle locale de Claude Code
 - Le format de stockage vectoriel reste a definir (prochaine session)
 
+## 2026-02-14 - Sprint 4 : Redesign UI + ESLint
+
+### Redesign theme sombre
+- **Style** : Moderne sombre inspire de Supabase/Vercel
+- **theme.css** : systeme complet de CSS custom properties (couleurs, radius, ombres, transitions, gradients)
+- **Logo SVG** : composant `Logo.tsx` - motif reseau de noeuds avec gradient indigo/violet et effets glow
+- **Composants rewrites** : SearchBar (focus glow), TagBadge (accent indigo), Pagination (dark buttons), QualityIndicator (CSS variables)
+- **Pages rewritees** : MemoryList (table dark, hover rows), MemoryDetail (cards dark, metadata grid), Dashboard (stat cards, gradient bars), GraphView (fond #111113, glow nodes, particles indigo)
+- **Navigation** : logo + titre gradient + badge "Memory Explorer"
+
+### ESLint v9 flat config
+- Mise a jour selon le skill init-project
+- `server/eslint.config.mjs` : @eslint/js + typescript-eslint
+- `client/eslint.config.js` : idem + eslint-plugin-react-hooks + eslint-plugin-react-refresh
+- Corrections lint : `_err` inutilise (server), interfaces `GraphNode`/`GraphLink` inutilisees (client), mock forwardRef (test)
+
+### Tests
+- 80 tests toujours verts (52 serveur + 28 client)
+- TypeScript compile sans erreur
+- Lint propre des deux cotes
+
+---
+
 ## 2026-02-14 - Sprint 3 : Features avancees
 
 ### Fonctionnalites implementees
