@@ -66,11 +66,13 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 5. Assainissement FTS5 MATCH (retrait operateurs AND/OR/NOT/*/"/^)
 6. Echappement LIKE (`%` et `_`) dans tous les filtres de tags
 
-### 8.2 Correctifs secondaires - BACKLOG
-- [ ] Installer `helmet` (en-tetes HTTP securises)
-- [ ] Ajouter `express-rate-limit` (protection DDoS basique)
-- [ ] Validation d'entrees avec `zod` (schemas stricts)
-- [ ] Token API optionnel (authentification legere)
+### 8.2 Correctifs secondaires - COMPLETE
+1. `helmet` : en-tetes HTTP securises (X-Content-Type-Options, X-Frame-Options, suppression X-Powered-By)
+2. `express-rate-limit` : 100 req / 15 min sur /api (headers RateLimit-Limit, RateLimit-Remaining)
+3. Token API optionnel : middleware `Authorization: Bearer <token>` si `API_TOKEN` env defini, health check reste public
+4. Validation `zod` : schemas stricts pour PUT memories, POST rate, bulk-delete, bulk-tag, bulk-type, import, PUT tags, POST tags/merge
+   - Helper `validateBody(schema, req, res)` reutilisable
+   - 8 schemas valident types, contraintes et champs requis
 
 ## Sprint 9 - Theme clair et memoires obsoletes
 
@@ -254,3 +256,5 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 | 2026-02-14 | Sprint 11 compteur acces | POST access, accessStats, auto-increment MemoryDetail, Dashboard UI, 280 tests verts |
 | 2026-02-14 | Sprint 12 usage stats | memory_access_log, GET usage-stats, UsageChart, toggle periode Dashboard, 298 tests verts |
 | 2026-02-15 | Sprint 13 clustering semantique | UnionFind classe, GET clusters, ClusterView, ScatterPlot colorMap, 314 tests verts |
+| 2026-02-15 | Sprint 8.2 securite secondaire | helmet, rate-limit, token API, validation zod (8 schemas), 337 tests verts |
+| 2026-02-15 | Lanceur desktop | start/stop-memviz.bat/.ps1, raccourci bureau avec icone SVG→ICO, detection services existants |
