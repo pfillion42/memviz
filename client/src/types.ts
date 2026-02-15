@@ -73,3 +73,13 @@ export interface MemoryFilters {
   quality_min?: number;
   quality_max?: number;
 }
+
+export interface DuplicateGroup {
+  similarity: number;
+  memories: Memory[];
+}
+
+export interface DuplicatesResponse {
+  groups: DuplicateGroup[];
+  total_groups: number;
+}

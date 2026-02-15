@@ -35,6 +35,7 @@ describe('App', () => {
     render(<App />);
     expect(screen.getByText('Memoires')).toBeDefined();
     expect(screen.getByText('Dashboard')).toBeDefined();
+    expect(screen.getByText('Doublons')).toBeDefined();
     expect(screen.getByText('Graphe')).toBeDefined();
   });
 

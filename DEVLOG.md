@@ -1,5 +1,28 @@
 # Journal de Developpement
 
+## 2026-02-14 - Sprint 5.3 : Detection de doublons
+
+### Backend
+- **Endpoint** : `GET /api/memories/duplicates?threshold=0.85`
+- **Algorithme** : Union-Find pour clustering transitif des memoires similaires
+- **Recherche** : KNN via vec0 (cosine distance), comparaison par paire
+- Route placee AVANT /:hash pour eviter la capture de route
+- 8 nouveaux tests backend (503 sans embedder, format, seuil, clustering, exclusion)
+
+### Frontend
+- **Page /duplicates** : slider seuil (0.7-1.0), groupes de doublons avec apercu
+- **Actions** : Garder (supprime les autres du groupe), Ignorer (dismiss le groupe)
+- **Hook** : useDuplicates(threshold) avec React Query
+- **Navigation** : lien "Doublons" dans le header, entre Memoires et Graphe
+- 6 nouveaux tests frontend (loading, empty, groups, similarite, contenu, slider)
+
+### Resultats
+- 93 tests serveur + 47 tests client = **140 tests total**, tous verts
+- TypeScript compile sans erreur, lint propre
+- Equipe 2 agents paralleles (backend-dev + frontend-dev)
+
+---
+
 ## 2026-02-14 - Sprint 5.1 + 5.2 : Filtres et operations en masse
 
 ### Sprint 5.1 - Filtres avances

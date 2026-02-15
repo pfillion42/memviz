@@ -363,6 +363,92 @@ describe('GET /api/memories/vector-search', () => {
   });
 });
 
+// --- GET /api/memories/duplicates ---
+describe('GET /api/memories/duplicates', () => {
+  it('retourne 503 si embedder non disponible', async () => {
+    // Creer une app sans embedFn pour ce test
+    const appNoEmbed = express();
+    appNoEmbed.use(express.json());
+    appNoEmbed.use('/api', createMemoriesRouter(db));
+
+    const res = await request(appNoEmbed).get('/api/memories/duplicates');
+    expect(res.status).toBe(503);
+  });
+
+  it('retourne un objet avec groups (array) et total_groups (number)', async () => {
+    const res = await request(app).get('/api/memories/duplicates?threshold=0.5');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('groups');
+    expect(Array.isArray(res.body.groups)).toBe(true);
+    expect(res.body).toHaveProperty('total_groups');
+    expect(typeof res.body.total_groups).toBe('number');
+  });
+
+  it('avec threshold=0.0, retourne des groupes (similarite elevee)', async () => {
+    const res = await request(app).get('/api/memories/duplicates?threshold=0.0');
+    expect(res.status).toBe(200);
+    // Avec un seuil de 0.0, pratiquement toutes les memoires sont "similaires"
+    expect(res.body.groups.length).toBeGreaterThan(0);
+  });
+
+  it('avec threshold=0.99, retourne moins ou aucun groupe', async () => {
+    const res = await request(app).get('/api/memories/duplicates?threshold=0.99');
+    expect(res.status).toBe(200);
+    // Avec un seuil tres eleve, peu ou pas de doublons
+    expect(res.body.groups.length).toBeLessThanOrEqual(1);
+  });
+
+  it('chaque groupe contient similarity et memories (array)', async () => {
+    const res = await request(app).get('/api/memories/duplicates?threshold=0.5');
+    expect(res.status).toBe(200);
+
+    if (res.body.groups.length > 0) {
+      const group = res.body.groups[0];
+      expect(group).toHaveProperty('similarity');
+      expect(typeof group.similarity).toBe('number');
+      expect(group).toHaveProperty('memories');
+      expect(Array.isArray(group.memories)).toBe(true);
+      expect(group.memories.length).toBeGreaterThanOrEqual(2);
+
+      // Verifier que chaque memoire a les champs essentiels
+      const mem = group.memories[0];
+      expect(mem).toHaveProperty('content_hash');
+      expect(mem).toHaveProperty('content');
+      expect(mem).toHaveProperty('tags');
+      expect(mem).toHaveProperty('memory_type');
+    }
+  });
+
+  it('exclut les memoires supprimees (deleted_at != null)', async () => {
+    const res = await request(app).get('/api/memories/duplicates?threshold=0.0');
+    expect(res.status).toBe(200);
+
+    // Parcourir tous les groupes et verifier qu'aucune memoire supprimee n'est presente
+    for (const group of res.body.groups) {
+      const hashes = group.memories.map((m: { content_hash: string }) => m.content_hash);
+      expect(hashes).not.toContain('hash_ddd444');
+    }
+  });
+
+  it('retourne threshold par defaut si non fourni', async () => {
+    const res = await request(app).get('/api/memories/duplicates');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('groups');
+  });
+
+  it('trie les groupes par similarite decroissante', async () => {
+    const res = await request(app).get('/api/memories/duplicates?threshold=0.3');
+    expect(res.status).toBe(200);
+
+    if (res.body.groups.length > 1) {
+      const sims = res.body.groups.map((g: { similarity: number }) => g.similarity);
+      for (let i = 1; i < sims.length; i++) {
+        expect(sims[i]).toBeLessThanOrEqual(sims[i - 1]);
+      }
+    }
+  });
+});
+
 // --- GET /api/memories/export ---
 describe('GET /api/memories/export', () => {
   it('exporte toutes les memoires actives en JSON', async () => {

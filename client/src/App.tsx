@@ -4,6 +4,7 @@ import { MemoryList } from './pages/MemoryList';
 import { MemoryDetail } from './pages/MemoryDetail';
 import { Dashboard } from './pages/Dashboard';
 import { GraphView } from './pages/GraphView';
+import { Duplicates } from './pages/Duplicates';
 import { Logo } from './components/Logo';
 
 const queryClient = new QueryClient({
@@ -67,6 +68,9 @@ function App() {
               <NavLink to="/memories" style={({ isActive }) => isActive ? activeStyle : navStyle}>
                 Memoires
               </NavLink>
+              <NavLink to="/duplicates" style={({ isActive }) => isActive ? activeStyle : navStyle}>
+                Doublons
+              </NavLink>
               <NavLink to="/graph" style={({ isActive }) => isActive ? activeStyle : navStyle}>
                 Graphe
               </NavLink>
@@ -82,6 +86,7 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/memories" element={<MemoryList />} />
               <Route path="/memories/:hash" element={<MemoryDetail />} />
+              <Route path="/duplicates" element={<Duplicates />} />
               <Route path="/graph" element={<GraphView />} />
             </Routes>
           </main>

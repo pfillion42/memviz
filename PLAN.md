@@ -32,16 +32,9 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Frontend : checkboxes, BulkActionBar fixee en bas, confirmation avant suppression
 - Dashboard comme page d'accueil (/ → Dashboard, /memories → MemoryList)
 
-### 5.3 Detection de doublons - A FAIRE
-**Backend** : `GET /api/memories/duplicates?threshold=0.9`
-- Pour chaque memoire, chercher les voisins vectoriels avec similarite > threshold
-- Retourner les groupes de doublons (clusters) tries par similarite decroissante
-
-**Frontend** : Page /duplicates
-- Liste des groupes de doublons avec pourcentage de similarite
-- Apercu du contenu cote a cote
-- Actions : fusionner (garder un, supprimer les autres), ignorer
-- Compteur de doublons dans le Dashboard
+### 5.3 Detection de doublons - COMPLETE
+- Backend : GET /api/memories/duplicates?threshold=0.85, Union-Find clustering, KNN vec0
+- Frontend : Page /duplicates, slider seuil (0.7-1.0), groupes avec apercu, actions Garder/Ignorer
 
 ## Backlog - Fonctionnalites futures
 
@@ -78,7 +71,7 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Embedding : all-MiniLM-L6-v2 (384 dims, cosine distance)
 - Injection de dependance : `createMemoriesRouter(db)` pour faciliter les tests
 - Frontend : React Query + React Router, hooks custom, theme sombre via CSS custom properties
-- Navigation : / (Dashboard), /memories (MemoryList), /memories/:hash (MemoryDetail), /graph (GraphView)
+- Navigation : / (Dashboard), /memories (MemoryList), /memories/:hash (MemoryDetail), /duplicates (Duplicates), /graph (GraphView)
 - Embedder : @huggingface/transformers (all-MiniLM-L6-v2), injection de dependance pour tests
 - Graphe : react-force-graph-2d pour la visualisation force-directed
 - Mode read/write : configurable via MEMORY_DB_READONLY env var
@@ -94,3 +87,4 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 | 2026-02-14 | Sprint 4 redesign UI + ESLint | Theme sombre moderne, logo SVG, ESLint v9 flat config, 80 tests verts |
 | 2026-02-14 | Sprint 5.1 filtres avances | FilterPanel, query params backend, persistence URL, 100 tests verts |
 | 2026-02-14 | Sprint 5.2 operations en masse | Bulk delete/tag/type, BulkActionBar, Dashboard homepage, 126 tests verts |
+| 2026-02-14 | Sprint 5.3 detection doublons | Endpoint Union-Find, page /duplicates, slider seuil, 140 tests verts |

@@ -109,6 +109,169 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     }
   });
 
+  // GET /api/memories/duplicates - detection de doublons vectoriels
+  router.get('/memories/duplicates', async (req: Request, res: Response) => {
+    const threshold = Math.min(Math.max(parseFloat(req.query.threshold as string) || 0.85, 0), 1);
+
+    if (!options.embedFn) {
+      res.status(503).json({ error: 'Detection de doublons non disponible (embedder non charge)' });
+      return;
+    }
+
+    try {
+      // 1. Recuperer toutes les memoires actives avec leurs IDs
+      const activeMemories = db.prepare(`
+        SELECT id, content_hash FROM memories WHERE deleted_at IS NULL
+      `).all() as { id: number; content_hash: string }[];
+
+      if (activeMemories.length === 0) {
+        res.json({ groups: [], total_groups: 0 });
+        return;
+      }
+
+      // 2. Pour chaque memoire, trouver les voisins similaires via vec0
+      interface Pair {
+        id1: number;
+        id2: number;
+        similarity: number;
+      }
+
+      const pairs: Pair[] = [];
+      const processedPairs = new Set<string>();
+
+      for (const mem of activeMemories) {
+        // Recuperer l'embedding de cette memoire
+        const embResult = db.prepare(`
+          SELECT content_embedding FROM memory_embeddings WHERE rowid = ?
+        `).get(mem.id) as { content_embedding: Buffer } | undefined;
+
+        if (!embResult) continue;
+
+        // Recherche KNN avec vec0
+        const vecResults = db.prepare(`
+          SELECT rowid, distance
+          FROM memory_embeddings
+          WHERE content_embedding MATCH ?
+          ORDER BY distance
+          LIMIT 50
+        `).all(embResult.content_embedding) as { rowid: number; distance: number }[];
+
+        // Filtrer les paires avec similarite >= threshold
+        for (const vec of vecResults) {
+          if (vec.rowid === mem.id) continue; // Ignorer la memoire elle-meme
+
+          const similarity = 1 - vec.distance;
+          if (similarity < threshold) continue;
+
+          // Creer une cle unique pour eviter les doublons (A-B = B-A)
+          const pairKey = [mem.id, vec.rowid].sort((a, b) => a - b).join('-');
+          if (processedPairs.has(pairKey)) continue;
+
+          processedPairs.add(pairKey);
+          pairs.push({ id1: mem.id, id2: vec.rowid, similarity });
+        }
+      }
+
+      if (pairs.length === 0) {
+        res.json({ groups: [], total_groups: 0 });
+        return;
+      }
+
+      // 3. Regrouper les paires en clusters (Union-Find)
+      const parent = new Map<number, number>();
+      const rank = new Map<number, number>();
+
+      function find(x: number): number {
+        if (!parent.has(x)) {
+          parent.set(x, x);
+          rank.set(x, 0);
+        }
+        if (parent.get(x) !== x) {
+          parent.set(x, find(parent.get(x)!));
+        }
+        return parent.get(x)!;
+      }
+
+      function union(x: number, y: number): void {
+        const rootX = find(x);
+        const rootY = find(y);
+        if (rootX === rootY) return;
+
+        const rankX = rank.get(rootX) || 0;
+        const rankY = rank.get(rootY) || 0;
+
+        if (rankX < rankY) {
+          parent.set(rootX, rootY);
+        } else if (rankX > rankY) {
+          parent.set(rootY, rootX);
+        } else {
+          parent.set(rootY, rootX);
+          rank.set(rootX, rankX + 1);
+        }
+      }
+
+      for (const pair of pairs) {
+        union(pair.id1, pair.id2);
+      }
+
+      // 4. Grouper les IDs par cluster
+      const clusters = new Map<number, Set<number>>();
+      const clusterSimilarities = new Map<number, number[]>();
+
+      for (const pair of pairs) {
+        const root = find(pair.id1);
+        if (!clusters.has(root)) {
+          clusters.set(root, new Set());
+          clusterSimilarities.set(root, []);
+        }
+        clusters.get(root)!.add(pair.id1);
+        clusters.get(root)!.add(pair.id2);
+        clusterSimilarities.get(root)!.push(pair.similarity);
+      }
+
+      // 5. Recuperer les details des memoires pour chaque cluster
+      interface DuplicateGroup {
+        similarity: number;
+        memories: unknown[];
+      }
+
+      const groups: DuplicateGroup[] = [];
+
+      for (const [root, idSet] of clusters.entries()) {
+        if (idSet.size < 2) continue; // Un groupe doit avoir au moins 2 memoires
+
+        const ids = Array.from(idSet);
+        const placeholders = ids.map(() => '?').join(',');
+        const memories = db.prepare(`
+          SELECT * FROM memories
+          WHERE id IN (${placeholders}) AND deleted_at IS NULL
+        `).all(...ids) as MemoryRow[];
+
+        if (memories.length < 2) continue;
+
+        // Calculer la similarite moyenne du groupe
+        const sims = clusterSimilarities.get(root) || [];
+        const avgSim = sims.length > 0 ? sims.reduce((a, b) => a + b, 0) / sims.length : 0;
+
+        groups.push({
+          similarity: avgSim,
+          memories: memories.map(parseMemory),
+        });
+      }
+
+      // 6. Trier par similarite decroissante
+      groups.sort((a, b) => b.similarity - a.similarity);
+
+      res.json({
+        groups,
+        total_groups: groups.length,
+      });
+    } catch (error) {
+      console.error('Erreur detection doublons:', error);
+      res.status(500).json({ error: 'Erreur lors de la detection de doublons' });
+    }
+  });
+
   // GET /api/memories/search - doit etre avant /:hash
   router.get('/memories/search', (req: Request, res: Response) => {
     const q = req.query.q as string | undefined;
