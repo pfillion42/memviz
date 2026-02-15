@@ -662,6 +662,44 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     });
   });
 
+  // GET /api/memories/stale - detection de memoires obsoletes (anciennes ou basse qualite)
+  router.get('/memories/stale', (req: Request, res: Response) => {
+    const days = Math.max(parseInt(req.query.days as string) || 90, 0);
+    const qualityMax = Math.min(Math.max(parseFloat(req.query.quality_max as string) || 0.3, 0), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 200);
+
+    // Calculer le timestamp limite (now - days*86400)
+    const nowTimestamp = Date.now() / 1000; // SQLite created_at est en secondes epoch
+    const ageThreshold = nowTimestamp - (days * 86400);
+
+    // Selectionner les memoires qui sont SOIT anciennes SOIT de basse qualite
+    // Exclure les supprimees, trier par created_at ASC (plus anciennes en premier)
+    // IMPORTANT : json_extract retourne NULL si metadata est NULL ou si quality_score n'existe pas
+    // On filtre seulement celles qui ont un quality_score defini ET <= qualityMax
+    const rows = db.prepare(`
+      SELECT * FROM memories
+      WHERE deleted_at IS NULL
+        AND (
+          created_at < ?
+          OR (
+            json_extract(metadata, '$.quality_score') IS NOT NULL
+            AND json_extract(metadata, '$.quality_score') <= ?
+          )
+        )
+      ORDER BY created_at ASC
+      LIMIT ?
+    `).all(ageThreshold, qualityMax, limit) as MemoryRow[];
+
+    res.json({
+      data: rows.map(parseMemory),
+      total: rows.length,
+      criteria: {
+        days,
+        quality_max: qualityMax,
+      },
+    });
+  });
+
   // GET /api/memories/:hash/graph
   router.get('/memories/:hash/graph', (req: Request, res: Response) => {
     const { hash } = req.params;

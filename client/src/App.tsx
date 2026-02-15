@@ -8,9 +8,11 @@ import { GraphView } from './pages/GraphView';
 import { Duplicates } from './pages/Duplicates';
 import { Timeline } from './pages/Timeline';
 import { Tags } from './pages/Tags';
+import { Stale } from './pages/Stale';
 import { Logo } from './components/Logo';
 import { KeyboardHelp } from './components/KeyboardHelp';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useTheme } from './hooks/useTheme';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +42,7 @@ const activeStyle: React.CSSProperties = {
 
 function AppContent() {
   const [showHelp, setShowHelp] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   useKeyboardShortcuts({ onToggleHelp: () => setShowHelp(v => !v) });
 
   return (
@@ -83,12 +86,44 @@ function AppContent() {
           <NavLink to="/tags" style={({ isActive }) => isActive ? activeStyle : navStyle}>
             Tags
           </NavLink>
+          <NavLink to="/stale" style={({ isActive }) => isActive ? activeStyle : navStyle}>
+            Obsoletes
+          </NavLink>
           <NavLink to="/graph" style={({ isActive }) => isActive ? activeStyle : navStyle}>
             Graphe
           </NavLink>
         </nav>
 
-        <div style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-muted)' }}>
+        <button
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
+          style={{
+            marginLeft: 'auto',
+            background: 'transparent',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            fontSize: '18px',
+            padding: '6px 10px',
+            transition: 'all var(--transition-fast)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+            e.currentTarget.style.borderColor = 'var(--border-accent)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.borderColor = 'var(--border-default)';
+          }}
+        >
+          {theme === 'dark' ? '☀' : '☾'}
+        </button>
+
+        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
           Memory Explorer
         </div>
       </header>
@@ -101,6 +136,7 @@ function AppContent() {
           <Route path="/memories/:hash" element={<MemoryDetail />} />
           <Route path="/duplicates" element={<Duplicates />} />
           <Route path="/tags" element={<Tags />} />
+          <Route path="/stale" element={<Stale />} />
           <Route path="/graph" element={<GraphView />} />
         </Routes>
       </main>

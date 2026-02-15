@@ -1392,6 +1392,130 @@ describe('POST /api/tags/merge', () => {
   });
 });
 
+// --- GET /api/memories/stale - Detection de memoires obsoletes ---
+describe('GET /api/memories/stale', () => {
+  let staleDb: DatabaseType;
+  let staleApp: express.Express;
+
+  beforeAll(() => {
+    staleDb = createTestDb();
+    staleApp = express();
+    staleApp.use(express.json());
+    staleApp.use('/api', createMemoriesRouter(staleDb, { embedFn: mockEmbedFn }));
+  });
+
+  afterAll(() => {
+    staleDb.close();
+  });
+
+  it('retourne 200 avec les memoires anciennes et basse qualite', async () => {
+    // hash_fff666 a created_at = 1771000000 (2026-02-13), quality_score = 0.30
+    // hash_ccc333 a quality_score = 0.45 (mais created_at recent)
+    const res = await request(staleApp).get('/api/memories/stale?days=1&quality_max=0.5');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('data');
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body).toHaveProperty('total');
+    expect(res.body).toHaveProperty('criteria');
+  });
+
+  it('respecte le parametre days (age minimum)', async () => {
+    // hash_fff666 : created_at = 1771000000 (2026-02-13 16:26:40)
+    // Date de reference : ~1771088000 (2026-02-14 16:53:20)
+    // Difference : ~88000s = ~1.01 jours
+    const res = await request(staleApp).get('/api/memories/stale?days=1&quality_max=0');
+    expect(res.status).toBe(200);
+
+    const hashes = res.body.data.map((m: { content_hash: string }) => m.content_hash);
+    expect(hashes).toContain('hash_fff666'); // Ancienne
+  });
+
+  it('respecte quality_max (basse qualite)', async () => {
+    // hash_ccc333 : quality_score = 0.45
+    // hash_fff666 : quality_score = 0.30
+    // Utiliser days=999999 (tres loin dans le futur, donc aucune memoire n'est ancienne)
+    // Ainsi, seul le critere quality_max s'applique
+    const res = await request(staleApp).get('/api/memories/stale?days=999999&quality_max=0.5');
+    expect(res.status).toBe(200);
+
+    const hashes = res.body.data.map((m: { content_hash: string }) => m.content_hash);
+    expect(hashes).toContain('hash_ccc333');
+    expect(hashes).toContain('hash_fff666');
+
+    // Ne doit PAS contenir les memoires de haute qualite
+    expect(hashes).not.toContain('hash_aaa111'); // quality_score = 0.95
+    expect(hashes).not.toContain('hash_ggg777'); // quality_score = 1.0
+  });
+
+  it('retourne les criteres utilises', async () => {
+    const res = await request(staleApp).get('/api/memories/stale?days=30&quality_max=0.4');
+    expect(res.status).toBe(200);
+    expect(res.body.criteria).toHaveProperty('days', 30);
+    expect(res.body.criteria).toHaveProperty('quality_max', 0.4);
+  });
+
+  it('exclut les memoires supprimees', async () => {
+    // hash_ddd444 a deleted_at != null
+    const res = await request(staleApp).get('/api/memories/stale?days=0&quality_max=1');
+    expect(res.status).toBe(200);
+    const hashes = res.body.data.map((m: { content_hash: string }) => m.content_hash);
+    expect(hashes).not.toContain('hash_ddd444');
+  });
+
+  it('pagine avec limit', async () => {
+    const res = await request(staleApp).get('/api/memories/stale?days=0&quality_max=1&limit=2');
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBeLessThanOrEqual(2);
+  });
+
+  it('respecte limit max de 200', async () => {
+    const res = await request(staleApp).get('/api/memories/stale?days=0&quality_max=1&limit=500');
+    expect(res.status).toBe(200);
+    // Le serveur doit clamper a 200 max
+    expect(res.body.data.length).toBeLessThanOrEqual(200);
+  });
+
+  it('utilise les valeurs par defaut (days=90, quality_max=0.3)', async () => {
+    const res = await request(staleApp).get('/api/memories/stale');
+    expect(res.status).toBe(200);
+    expect(res.body.criteria).toHaveProperty('days', 90);
+    expect(res.body.criteria).toHaveProperty('quality_max', 0.3);
+  });
+
+  it('trie par created_at ASC (plus anciennes en premier)', async () => {
+    const res = await request(staleApp).get('/api/memories/stale?days=0&quality_max=1');
+    expect(res.status).toBe(200);
+
+    if (res.body.data.length > 1) {
+      const dates = res.body.data.map((m: { created_at: number }) => m.created_at);
+      for (let i = 1; i < dates.length; i++) {
+        expect(dates[i]).toBeGreaterThanOrEqual(dates[i - 1]);
+      }
+    }
+  });
+
+  it('retourne metadata et tags parsees', async () => {
+    const res = await request(staleApp).get('/api/memories/stale?days=0&quality_max=0.5');
+    expect(res.status).toBe(200);
+
+    if (res.body.data.length > 0) {
+      const mem = res.body.data[0];
+      if (mem.metadata) {
+        expect(typeof mem.metadata).toBe('object');
+      }
+      expect(Array.isArray(mem.tags)).toBe(true);
+    }
+  });
+
+  it('retourne un tableau vide si aucune memoire obsolete', async () => {
+    // Tous les quality_score sont > 0.1 dans le seed, et days=999999 (aucune memoire n'est ancienne)
+    const res = await request(staleApp).get('/api/memories/stale?days=999999&quality_max=0.1');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(0);
+    expect(res.body.total).toBe(0);
+  });
+});
+
 // --- Tests de securite ---
 describe('Securite - Assainissement FTS5', () => {
   it('assainit les operateurs FTS5 speciaux (AND/OR/NOT)', async () => {

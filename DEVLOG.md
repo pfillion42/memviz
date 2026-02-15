@@ -1,5 +1,27 @@
 # Journal de Developpement
 
+## 2026-02-14 - Sprint 9 : Theme clair et memoires obsoletes
+
+### Sprint 9.1 - Toggle theme clair/sombre
+- **CSS** : bloc `[data-theme="light"]` dans theme.css, toutes les variables redefinies (backgrounds blancs, textes sombres, borders gris, shadows subtils)
+- **Hook** : `useTheme()` - localStorage (cle `memviz-theme`), support `prefers-color-scheme`, applique `data-theme` sur `documentElement`
+- **UI** : bouton soleil/lune dans le header App.tsx, toggle au clic
+- 9 tests ThemeToggle (localStorage, toggle, persistence, defaut dark, preference systeme)
+
+### Sprint 9.2 - Detection memoires obsoletes
+- **Backend** : `GET /api/memories/stale` - filtre OR (anciennes created_at < now-days*86400, basse qualite <= quality_max), COALESCE pour metadata null, tri ASC, limit max 200
+- **Frontend** : Page `/stale` avec sliders (age 30-365j, qualite 0-50%), liste avec liens, badges type/tags, score qualite, boutons Supprimer/Tout supprimer (avec confirm)
+- **Hook** : `useStaleMemories(days, qualityMax)` via React Query
+- **Navigation** : lien "Obsoletes" entre Tags et Graphe
+- 11 nouveaux tests backend + 7 tests frontend
+
+### Resultats
+- 150 tests serveur + 98 tests client = **248 tests total**, tous verts
+- TypeScript compile sans erreur, lint propre
+- Equipe 2 agents paralleles (theme-dev + stale-dev)
+
+---
+
 ## 2026-02-14 - Sprint 8.1 : Correctifs de securite
 
 ### Contexte

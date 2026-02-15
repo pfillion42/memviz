@@ -4,6 +4,22 @@ import App from '../src/App';
 
 beforeEach(() => {
   vi.restoreAllMocks();
+
+  // Mock matchMedia pour useTheme
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation(query => ({
+      matches: query === '(prefers-color-scheme: dark)',
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+
   // Mock fetch pour eviter les erreurs reseau dans les tests
   vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
     const urlStr = typeof url === 'string' ? url : url.toString();
@@ -50,6 +66,7 @@ describe('App', () => {
     expect(screen.getByText('Timeline')).toBeDefined();
     expect(screen.getByText('Doublons')).toBeDefined();
     expect(screen.getByText('Tags')).toBeDefined();
+    expect(screen.getByText('Obsoletes')).toBeDefined();
     expect(screen.getByText('Graphe')).toBeDefined();
   });
 

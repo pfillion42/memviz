@@ -72,6 +72,21 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - [ ] Validation d'entrees avec `zod` (schemas stricts)
 - [ ] Token API optionnel (authentification legere)
 
+## Sprint 9 - Theme clair et memoires obsoletes
+
+### 9.1 Toggle theme clair/sombre - COMPLETE
+- CSS : bloc `[data-theme="light"]` dans theme.css avec toutes les variables redefinies
+- Hook : `useTheme()` avec localStorage + prefers-color-scheme
+- UI : bouton soleil/lune dans le header App.tsx
+- 9 tests ThemeToggle
+
+### 9.2 Detection memoires obsoletes - COMPLETE
+- Backend : GET /api/memories/stale (filtres days, quality_max, limit, tri ASC)
+- Frontend : Page /stale avec sliders age/qualite, liste, boutons Supprimer/Tout supprimer
+- Hook : useStaleMemories(days, qualityMax)
+- Navigation : lien "Obsoletes" entre Tags et Graphe
+- 11 tests backend + 7 tests frontend
+
 ## Backlog - Fonctionnalites futures
 
 ### Exploration et comprehension
@@ -79,12 +94,12 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - [ ] Clustering automatique - grouper par proximite semantique
 
 ### Navigation et UX
-- [ ] Mode clair / toggle theme
+- [x] Mode clair / toggle theme (Sprint 9)
 - [ ] Pagination recherche vectorielle
 
 ### Gestion et maintenance
-- [ ] Gestion globale des tags - renommer, fusionner, supprimer un tag partout
-- [ ] Memoires obsoletes - identifier et suggerer nettoyage (jamais accedees, anciennes)
+- [x] Gestion globale des tags - renommer, fusionner, supprimer un tag partout (Sprint 7)
+- [x] Memoires obsoletes - identifier et suggerer nettoyage (Sprint 9)
 
 ### Synchronisation et integration
 - [ ] Live reload - surveiller la DB SQLite, mise a jour temps reel
@@ -124,3 +139,4 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 | 2026-02-14 | Sprint 6 timeline + qualite | Timeline chronologique, QualityVoter etoiles 1-5, 175 tests verts |
 | 2026-02-14 | Sprint 7 tags + raccourcis | Gestion tags (rename/delete/merge), raccourcis clavier, 215 tests verts |
 | 2026-02-14 | Sprint 8.1 securite | 6 correctifs : bind localhost, CORS, body limit, env DB, FTS5 sanitize, LIKE escape, 221 tests verts |
+| 2026-02-14 | Sprint 9 theme + obsoletes | Toggle dark/light, page memoires obsoletes, 248 tests verts |
