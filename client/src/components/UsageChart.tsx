@@ -5,9 +5,75 @@ interface UsageChartProps {
   accesses: UsageDataPoint[];
 }
 
+interface Point { x: number; y: number }
+
 const SVG_WIDTH = 600;
 const SVG_HEIGHT = 200;
 const PADDING = { top: 16, right: 16, bottom: 36, left: 44 };
+
+// Interpolation cubique monotone (Fritsch-Carlson)
+// Garantit que la courbe ne depasse jamais les valeurs des points
+function buildMonotonePath(points: Point[]): string {
+  if (points.length === 0) return '';
+  if (points.length === 1) return `M${points[0].x},${points[0].y}`;
+  if (points.length === 2) return `M${points[0].x},${points[0].y} L${points[1].x},${points[1].y}`;
+
+  const n = points.length;
+
+  // 1. Pentes entre segments (delta)
+  const dx: number[] = [];
+  const dy: number[] = [];
+  const slope: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(points[i + 1].x - points[i].x);
+    dy.push(points[i + 1].y - points[i].y);
+    slope.push(dx[i] === 0 ? 0 : dy[i] / dx[i]);
+  }
+
+  // 2. Tangentes aux points (Fritsch-Carlson)
+  const m: number[] = new Array(n);
+  m[0] = slope[0];
+  m[n - 1] = slope[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    if (slope[i - 1] * slope[i] <= 0) {
+      // Changement de direction -> tangente nulle (pas d'overshoot)
+      m[i] = 0;
+    } else {
+      m[i] = (slope[i - 1] + slope[i]) / 2;
+    }
+  }
+
+  // 3. Ajustement monotone : limiter les tangentes
+  for (let i = 0; i < n - 1; i++) {
+    if (slope[i] === 0) {
+      m[i] = 0;
+      m[i + 1] = 0;
+    } else {
+      const alpha = m[i] / slope[i];
+      const beta = m[i + 1] / slope[i];
+      // Limiter pour rester dans le cercle de rayon 3
+      const s = alpha * alpha + beta * beta;
+      if (s > 9) {
+        const t = 3 / Math.sqrt(s);
+        m[i] = t * alpha * slope[i];
+        m[i + 1] = t * beta * slope[i];
+      }
+    }
+  }
+
+  // 4. Construire le path SVG avec des courbes de Bezier cubiques
+  let d = `M${points[0].x},${points[0].y}`;
+  for (let i = 0; i < n - 1; i++) {
+    const seg = dx[i] / 3;
+    const cp1x = points[i].x + seg;
+    const cp1y = points[i].y + m[i] * seg;
+    const cp2x = points[i + 1].x - seg;
+    const cp2y = points[i + 1].y - m[i + 1] * seg;
+    d += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${points[i + 1].x},${points[i + 1].y}`;
+  }
+
+  return d;
+}
 
 export function UsageChart({ creations, accesses }: UsageChartProps) {
   const allDates = Array.from(new Set([
@@ -46,17 +112,19 @@ export function UsageChart({ creations, accesses }: UsageChartProps) {
     return PADDING.top + plotH - (count / maxCount) * plotH;
   }
 
-  function buildLine(dataMap: Map<string, number>): string {
-    return visibleDates.map((date, i) => {
-      const c = dataMap.get(date) || 0;
-      return `${i === 0 ? 'M' : 'L'}${getX(i)},${getY(c)}`;
-    }).join(' ');
+  function getPoints(dataMap: Map<string, number>): Point[] {
+    return visibleDates.map((date, i) => ({
+      x: getX(i),
+      y: getY(dataMap.get(date) || 0),
+    }));
   }
 
-  function buildArea(dataMap: Map<string, number>): string {
-    const line = buildLine(dataMap);
+  function buildSplineArea(dataMap: Map<string, number>): string {
+    const spline = buildMonotonePath(getPoints(dataMap));
     const baseY = PADDING.top + plotH;
-    return `${line} L${getX(visibleDates.length - 1)},${baseY} L${getX(0)},${baseY} Z`;
+    const lastX = getX(visibleDates.length - 1);
+    const firstX = getX(0);
+    return `${spline} L${lastX},${baseY} L${firstX},${baseY} Z`;
   }
 
   // Graduations Y
@@ -69,10 +137,11 @@ export function UsageChart({ creations, accesses }: UsageChartProps) {
   const xLabelStep = Math.max(1, Math.ceil(visibleDates.length / 8));
 
   function formatLabel(date: string): string {
-    // YYYY-MM-DD -> MM-DD, YYYY-WXX -> WXX, YYYY-MM -> YYYY-MM
-    if (date.includes('-W')) return date.slice(5);   // W06
-    if (date.length === 10) return date.slice(5);    // 02-14
-    return date;                                      // 2026-02
+    // "2026-02-14 16:00" -> "16h" (horaire)
+    if (date.includes(' ')) return date.split(' ')[1].replace(':00', 'h');
+    // "2026-02-14" -> "02-14" (journalier)
+    if (date.length === 10) return date.slice(5);
+    return date;
   }
 
   return (
@@ -144,21 +213,21 @@ export function UsageChart({ creations, accesses }: UsageChartProps) {
         />
 
         {/* Aire sous les courbes */}
-        <path d={buildArea(creationMap)} fill="var(--accent-primary)" opacity="0.12" />
-        <path d={buildArea(accessMap)} fill="var(--info)" opacity="0.10" />
+        <path d={buildSplineArea(creationMap)} fill="var(--accent-primary)" opacity="0.12" />
+        <path d={buildSplineArea(accessMap)} fill="var(--info)" opacity="0.10" />
 
-        {/* Ligne creations */}
+        {/* Courbe creations */}
         <path
           data-testid="line-creation"
-          d={buildLine(creationMap)}
+          d={buildMonotonePath(getPoints(creationMap))}
           fill="none" stroke="var(--accent-primary)"
           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
         />
 
-        {/* Ligne acces */}
+        {/* Courbe acces */}
         <path
           data-testid="line-access"
-          d={buildLine(accessMap)}
+          d={buildMonotonePath(getPoints(accessMap))}
           fill="none" stroke="var(--info)"
           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
         />
@@ -191,7 +260,7 @@ export function UsageChart({ creations, accesses }: UsageChartProps) {
           );
         })}
 
-        {/* Labels X (dates) */}
+        {/* Labels X */}
         {visibleDates.map((date, i) => {
           if (i % xLabelStep !== 0 && i !== visibleDates.length - 1) return null;
           return (

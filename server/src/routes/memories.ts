@@ -402,14 +402,14 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
 
     // Lookup map pour les expressions SQL de groupement (securite : pas de concatenation dynamique)
     const creationExprMap: Record<string, string> = {
-      day: "date(created_at, 'unixepoch')",
-      week: "strftime('%Y-W%W', created_at, 'unixepoch')",
-      month: "strftime('%Y-%m', created_at, 'unixepoch')",
+      day: "strftime('%Y-%m-%d %H:00', created_at, 'unixepoch', 'localtime')",
+      week: "date(created_at, 'unixepoch', 'localtime')",
+      month: "date(created_at, 'unixepoch', 'localtime')",
     };
     const accessExprMap: Record<string, string> = {
-      day: "date(accessed_at, 'unixepoch')",
-      week: "strftime('%Y-W%W', accessed_at, 'unixepoch')",
-      month: "strftime('%Y-%m', accessed_at, 'unixepoch')",
+      day: "strftime('%Y-%m-%d %H:00', accessed_at, 'unixepoch', 'localtime')",
+      week: "date(accessed_at, 'unixepoch', 'localtime')",
+      month: "date(accessed_at, 'unixepoch', 'localtime')",
     };
     const dateExpr = creationExprMap[period];
     const accessDateExpr = accessExprMap[period];

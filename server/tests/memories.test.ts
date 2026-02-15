@@ -1859,9 +1859,8 @@ describe('GET /api/memories/usage-stats', () => {
     expect(res.body).toHaveProperty('accesses');
   });
 
-  it('creations contient les dates groupees par jour', async () => {
-    // Seed : 1 memoire le 2026-02-13 (hash_fff666), 6 memoires le 2026-02-14
-    // (hash_aaa111, bbb222, ccc333, eee555, hhh888, ggg777) - hash_ddd444 deleted
+  it('creations contient les dates groupees par heure (period=day)', async () => {
+    // Seed : 7 memoires non-supprimees reparties sur differentes heures
     const res = await request(usageApp).get('/api/memories/usage-stats?period=day');
     expect(res.status).toBe(200);
 
@@ -1869,54 +1868,57 @@ describe('GET /api/memories/usage-stats', () => {
     expect(Array.isArray(creations)).toBe(true);
     expect(creations.length).toBeGreaterThanOrEqual(2);
 
-    // Verifier la presence des 2 jours
-    const feb13 = creations.find((c: { date: string }) => c.date === '2026-02-13');
-    const feb14 = creations.find((c: { date: string }) => c.date === '2026-02-14');
-    expect(feb13).toBeDefined();
-    expect(feb13.count).toBe(1);
-    expect(feb14).toBeDefined();
-    expect(feb14.count).toBe(6);
+    // Le format doit etre YYYY-MM-DD HH:00 (heure locale)
+    expect(creations[0].date).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:00$/);
+
+    // Le total doit correspondre aux 7 memoires non-supprimees
+    const totalCount = creations.reduce((sum: number, c: { count: number }) => sum + c.count, 0);
+    expect(totalCount).toBe(7);
   });
 
-  it('accesses contient les dates groupees par jour', async () => {
-    // Seed access_log : 2 acces le 2026-02-13, 3 acces le 2026-02-14
+  it('accesses contient les dates groupees par heure (period=day)', async () => {
+    // Seed access_log : 5 acces au total
     const res = await request(usageApp).get('/api/memories/usage-stats?period=day');
     expect(res.status).toBe(200);
 
     const accesses = res.body.accesses;
     expect(Array.isArray(accesses)).toBe(true);
-    expect(accesses.length).toBeGreaterThanOrEqual(2);
+    expect(accesses.length).toBeGreaterThanOrEqual(1);
 
-    const feb13 = accesses.find((a: { date: string }) => a.date === '2026-02-13');
-    const feb14 = accesses.find((a: { date: string }) => a.date === '2026-02-14');
-    expect(feb13).toBeDefined();
-    expect(feb13.count).toBe(2);
-    expect(feb14).toBeDefined();
-    expect(feb14.count).toBe(3);
+    // Le format doit etre YYYY-MM-DD HH:00 (heure locale)
+    expect(accesses[0].date).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:00$/);
+
+    // Le total doit correspondre aux 5 acces du seed
+    const totalCount = accesses.reduce((sum: number, a: { count: number }) => sum + a.count, 0);
+    expect(totalCount).toBe(5);
   });
 
-  it('period=week groupe par semaine', async () => {
+  it('period=week groupe par jour', async () => {
     const res = await request(usageApp).get('/api/memories/usage-stats?period=week');
     expect(res.status).toBe(200);
     expect(res.body.period).toBe('week');
 
     const creations = res.body.creations;
     expect(Array.isArray(creations)).toBe(true);
-    expect(creations.length).toBeGreaterThan(0);
-    // Le format semaine doit contenir "-W"
-    expect(creations[0].date).toMatch(/^\d{4}-W\d{2}$/);
+    expect(creations.length).toBeGreaterThanOrEqual(1);
+    // Le format jour : YYYY-MM-DD
+    expect(creations[0].date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    // Le total doit correspondre aux 7 memoires non-supprimees
+    const totalCount = creations.reduce((sum: number, c: { count: number }) => sum + c.count, 0);
+    expect(totalCount).toBe(7);
   });
 
-  it('period=month groupe par mois', async () => {
+  it('period=month groupe par jour', async () => {
     const res = await request(usageApp).get('/api/memories/usage-stats?period=month');
     expect(res.status).toBe(200);
     expect(res.body.period).toBe('month');
 
     const creations = res.body.creations;
     expect(Array.isArray(creations)).toBe(true);
-    expect(creations.length).toBeGreaterThan(0);
-    // Le format mois doit etre YYYY-MM
-    expect(creations[0].date).toMatch(/^\d{4}-\d{2}$/);
+    expect(creations.length).toBeGreaterThanOrEqual(1);
+    // Le format jour : YYYY-MM-DD
+    expect(creations[0].date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it('period invalide retourne 400', async () => {
