@@ -5,28 +5,25 @@ interface UsageChartProps {
   accesses: UsageDataPoint[];
 }
 
-const CHART_HEIGHT = 140;
-const CHART_PADDING = { top: 10, right: 10, bottom: 30, left: 40 };
+const SVG_WIDTH = 600;
+const SVG_HEIGHT = 200;
+const PADDING = { top: 16, right: 16, bottom: 36, left: 44 };
 
 export function UsageChart({ creations, accesses }: UsageChartProps) {
-  // Fusionner toutes les dates uniques et trier par ordre ASC
   const allDates = Array.from(new Set([
     ...creations.map(c => c.date),
     ...accesses.map(a => a.date),
   ])).sort();
 
-  // Construire les maps pour acces rapide
   const creationMap = new Map(creations.map(c => [c.date, c.count]));
   const accessMap = new Map(accesses.map(a => [a.date, a.count]));
 
-  // Trouver le max pour calculer les hauteurs
   const maxCount = Math.max(
     1,
     ...creations.map(c => c.count),
     ...accesses.map(a => a.count),
   );
 
-  // Limiter a 30 points visibles (les plus recents)
   const visibleDates = allDates.slice(-30);
 
   if (visibleDates.length === 0) {
@@ -37,110 +34,93 @@ export function UsageChart({ creations, accesses }: UsageChartProps) {
     );
   }
 
-  const drawWidth = 100 - CHART_PADDING.left - CHART_PADDING.right;
-  const drawHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
+  const plotW = SVG_WIDTH - PADDING.left - PADDING.right;
+  const plotH = SVG_HEIGHT - PADDING.top - PADDING.bottom;
 
-  // Calculer les positions X et Y pour chaque point
   function getX(i: number): number {
-    if (visibleDates.length === 1) return CHART_PADDING.left + drawWidth / 2;
-    return CHART_PADDING.left + (i / (visibleDates.length - 1)) * drawWidth;
+    if (visibleDates.length === 1) return PADDING.left + plotW / 2;
+    return PADDING.left + (i / (visibleDates.length - 1)) * plotW;
   }
 
   function getY(count: number): number {
-    return CHART_PADDING.top + drawHeight - (count / maxCount) * drawHeight;
+    return PADDING.top + plotH - (count / maxCount) * plotH;
   }
 
-  // Construire les paths SVG pour les 2 series
-  function buildPath(dataMap: Map<string, number>): string {
+  function buildLine(dataMap: Map<string, number>): string {
     return visibleDates.map((date, i) => {
-      const count = dataMap.get(date) || 0;
-      const x = getX(i);
-      const y = getY(count);
-      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+      const c = dataMap.get(date) || 0;
+      return `${i === 0 ? 'M' : 'L'}${getX(i)},${getY(c)}`;
     }).join(' ');
   }
 
-  // Construire le path de l'aire sous la courbe
-  function buildAreaPath(dataMap: Map<string, number>): string {
-    const linePath = buildPath(dataMap);
-    const lastX = getX(visibleDates.length - 1);
-    const firstX = getX(0);
-    const baseY = CHART_PADDING.top + drawHeight;
-    return `${linePath} L ${lastX} ${baseY} L ${firstX} ${baseY} Z`;
+  function buildArea(dataMap: Map<string, number>): string {
+    const line = buildLine(dataMap);
+    const baseY = PADDING.top + plotH;
+    return `${line} L${getX(visibleDates.length - 1)},${baseY} L${getX(0)},${baseY} Z`;
   }
 
-  const creationPath = buildPath(creationMap);
-  const accessPath = buildPath(accessMap);
-  const creationAreaPath = buildAreaPath(creationMap);
-  const accessAreaPath = buildAreaPath(accessMap);
-
-  // Graduations Y (3-4 niveaux)
+  // Graduations Y
+  const yStep = Math.ceil(maxCount / 4) || 1;
   const yTicks: number[] = [];
-  const step = Math.ceil(maxCount / 3);
-  for (let v = 0; v <= maxCount; v += step) {
-    yTicks.push(v);
-  }
-  if (!yTicks.includes(maxCount)) yTicks.push(maxCount);
+  for (let v = 0; v <= maxCount; v += yStep) yTicks.push(v);
+  if (yTicks[yTicks.length - 1] < maxCount) yTicks.push(maxCount);
 
-  // Labels X (afficher max ~6 labels pour eviter le chevauchement)
-  const labelStep = Math.max(1, Math.floor(visibleDates.length / 6));
+  // Labels X : afficher max ~8 labels
+  const xLabelStep = Math.max(1, Math.ceil(visibleDates.length / 8));
+
+  function formatLabel(date: string): string {
+    // YYYY-MM-DD -> MM-DD, YYYY-WXX -> WXX, YYYY-MM -> YYYY-MM
+    if (date.includes('-W')) return date.slice(5);   // W06
+    if (date.length === 10) return date.slice(5);    // 02-14
+    return date;                                      // 2026-02
+  }
 
   return (
     <div>
       {/* Legende */}
       <div data-testid="usage-legend" style={{
         display: 'flex',
-        gap: '16px',
+        gap: '20px',
         marginBottom: '12px',
         fontSize: '12px',
         color: 'var(--text-secondary)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{
-            width: '16px',
-            height: '3px',
-            borderRadius: '2px',
-            background: 'var(--accent-primary)',
+            width: '20px', height: '3px', borderRadius: '2px',
+            backgroundColor: 'var(--accent-primary)',
           }} />
           <span>Creations</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{
-            width: '16px',
-            height: '3px',
-            borderRadius: '2px',
+            width: '20px', height: '3px', borderRadius: '2px',
             backgroundColor: 'var(--info)',
           }} />
           <span>Acces</span>
         </div>
       </div>
 
-      {/* Line chart SVG */}
+      {/* SVG line chart */}
       <svg
         data-testid="usage-line-chart"
-        viewBox={`0 0 100 ${CHART_HEIGHT}`}
-        preserveAspectRatio="none"
-        style={{ width: '100%', height: `${CHART_HEIGHT}px` }}
+        viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+        style={{ width: '100%', height: 'auto' }}
       >
-        {/* Lignes de grille horizontales */}
+        {/* Grille horizontale + labels Y (quantite) */}
         {yTicks.map(v => {
           const y = getY(v);
           return (
-            <g key={`tick-${v}`}>
+            <g key={`y-${v}`}>
               <line
-                x1={CHART_PADDING.left}
-                y1={y}
-                x2={CHART_PADDING.left + drawWidth}
-                y2={y}
-                stroke="var(--border-default)"
-                strokeWidth="0.2"
-                strokeDasharray="1,1"
+                x1={PADDING.left} y1={y}
+                x2={SVG_WIDTH - PADDING.right} y2={y}
+                stroke="var(--border-default)" strokeWidth="1"
+                strokeDasharray="4,4" opacity="0.5"
               />
               <text
-                x={CHART_PADDING.left - 2}
-                y={y + 1.2}
-                textAnchor="end"
-                fontSize="3.5"
+                x={PADDING.left - 8} y={y + 4}
+                textAnchor="end" fontSize="11"
                 fill="var(--text-muted)"
               >
                 {v}
@@ -149,85 +129,79 @@ export function UsageChart({ creations, accesses }: UsageChartProps) {
           );
         })}
 
-        {/* Aire sous les courbes (fond transparent) */}
-        <path
-          d={creationAreaPath}
-          fill="var(--accent-primary)"
-          opacity="0.1"
+        {/* Axe X (bas) */}
+        <line
+          x1={PADDING.left} y1={PADDING.top + plotH}
+          x2={SVG_WIDTH - PADDING.right} y2={PADDING.top + plotH}
+          stroke="var(--border-default)" strokeWidth="1"
         />
-        <path
-          d={accessAreaPath}
-          fill="var(--info)"
-          opacity="0.08"
+
+        {/* Axe Y (gauche) */}
+        <line
+          x1={PADDING.left} y1={PADDING.top}
+          x2={PADDING.left} y2={PADDING.top + plotH}
+          stroke="var(--border-default)" strokeWidth="1"
         />
+
+        {/* Aire sous les courbes */}
+        <path d={buildArea(creationMap)} fill="var(--accent-primary)" opacity="0.12" />
+        <path d={buildArea(accessMap)} fill="var(--info)" opacity="0.10" />
 
         {/* Ligne creations */}
         <path
           data-testid="line-creation"
-          d={creationPath}
-          fill="none"
-          stroke="var(--accent-primary)"
-          strokeWidth="0.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          d={buildLine(creationMap)}
+          fill="none" stroke="var(--accent-primary)"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
         />
 
         {/* Ligne acces */}
         <path
           data-testid="line-access"
-          d={accessPath}
-          fill="none"
-          stroke="var(--info)"
-          strokeWidth="0.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          d={buildLine(accessMap)}
+          fill="none" stroke="var(--info)"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
         />
 
-        {/* Points sur les courbes */}
+        {/* Points */}
         {visibleDates.map((date, i) => {
-          const creationCount = creationMap.get(date) || 0;
-          const accessCount = accessMap.get(date) || 0;
+          const cc = creationMap.get(date) || 0;
+          const ac = accessMap.get(date) || 0;
           return (
             <g key={date}>
-              {creationCount > 0 && (
+              {cc > 0 && (
                 <circle
                   data-testid="point-creation"
-                  cx={getX(i)}
-                  cy={getY(creationCount)}
-                  r="0.8"
-                  fill="var(--accent-primary)"
+                  cx={getX(i)} cy={getY(cc)} r="3.5"
+                  fill="var(--accent-primary)" stroke="var(--bg-surface)" strokeWidth="1.5"
                 >
-                  <title>{`${date} - Creations: ${creationCount}`}</title>
+                  <title>{`${date} — Creations: ${cc}`}</title>
                 </circle>
               )}
-              {accessCount > 0 && (
+              {ac > 0 && (
                 <circle
                   data-testid="point-access"
-                  cx={getX(i)}
-                  cy={getY(accessCount)}
-                  r="0.8"
-                  fill="var(--info)"
+                  cx={getX(i)} cy={getY(ac)} r="3.5"
+                  fill="var(--info)" stroke="var(--bg-surface)" strokeWidth="1.5"
                 >
-                  <title>{`${date} - Acces: ${accessCount}`}</title>
+                  <title>{`${date} — Acces: ${ac}`}</title>
                 </circle>
               )}
             </g>
           );
         })}
 
-        {/* Labels X */}
+        {/* Labels X (dates) */}
         {visibleDates.map((date, i) => {
-          if (i % labelStep !== 0 && i !== visibleDates.length - 1) return null;
+          if (i % xLabelStep !== 0 && i !== visibleDates.length - 1) return null;
           return (
             <text
-              key={`label-${date}`}
-              x={getX(i)}
-              y={CHART_HEIGHT - 5}
-              textAnchor="middle"
-              fontSize="3"
+              key={`x-${date}`}
+              x={getX(i)} y={PADDING.top + plotH + 20}
+              textAnchor="middle" fontSize="11"
               fill="var(--text-muted)"
             >
-              {date.length > 7 ? date.slice(5) : date}
+              {formatLabel(date)}
             </text>
           );
         })}
