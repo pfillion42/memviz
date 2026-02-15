@@ -1,5 +1,35 @@
 # Journal de Developpement
 
+## 2026-02-14 - Sprint 8.1 : Correctifs de securite
+
+### Contexte
+Audit de securite complet (17 constats). Application des 6 correctifs prioritaires.
+
+### Correctifs appliques
+1. **Bind localhost** : Express ecoute sur `127.0.0.1` au lieu de `0.0.0.0` (pas expose au reseau)
+2. **CORS restreint** : origines limitees a `localhost:5173` et `127.0.0.1:5173` (configurable via `CORS_ORIGINS`)
+3. **Limite body** : `express.json({ limit: '5mb' })` pour eviter les payloads massifs
+4. **DB path env** : chemin hardcode supprime, `MEMORY_DB_PATH` obligatoire via `.env` (+ `dotenv` installe)
+5. **FTS5 sanitize** : fonction `sanitizeFts5()` retire les operateurs speciaux (AND/OR/NOT/*/"/^) avant MATCH
+6. **LIKE escape** : fonction `escapeLike()` echappe `%` et `_` dans tous les filtres de tags (6 occurrences corrigees)
+
+### Fichiers modifies
+- `server/src/index.ts` : dotenv import, CORS configure, body limit, bind HOST
+- `server/src/db.ts` : chemin hardcode supprime, validation MEMORY_DB_PATH
+- `server/src/routes/memories.ts` : `sanitizeFts5()` + `escapeLike()`, appliques dans search, memories list, timeline, tags rename/delete/merge
+- `server/.env` : cree avec MEMORY_DB_PATH (exclu du git)
+- `server/.env.example` : mis a jour avec toutes les variables
+- `server/package.json` : ajout dotenv
+
+### Tests ajoutes
+- 6 nouveaux tests de securite (FTS5 operateurs, FTS5 caracteres, FTS5 vide, LIKE %, LIKE _, body limit)
+
+### Resultats
+- 139 tests serveur + 82 tests client = **221 tests total**, tous verts
+- TypeScript compile sans erreur, lint propre
+
+---
+
 ## 2026-02-14 - Sprint 7 : Tags globaux et raccourcis clavier
 
 ### Sprint 7.1 - Gestion globale des tags

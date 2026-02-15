@@ -56,6 +56,22 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Hook useKeyboardShortcuts : j/k navigation, / recherche, Enter ouvrir, Escape annuler, ? aide
 - Modal KeyboardHelp avec liste des raccourcis
 
+## Sprint 8 - Securite (correctifs audit)
+
+### 8.1 Correctifs prioritaires - COMPLETE
+1. Ecoute restreinte a `127.0.0.1` (pas expose au reseau)
+2. CORS restreint aux origines autorisees (`CORS_ORIGINS` env var)
+3. Limite body JSON a 5 MB (`express.json({ limit: '5mb' })`)
+4. Chemin DB via `MEMORY_DB_PATH` obligatoire (plus de fallback hardcode)
+5. Assainissement FTS5 MATCH (retrait operateurs AND/OR/NOT/*/"/^)
+6. Echappement LIKE (`%` et `_`) dans tous les filtres de tags
+
+### 8.2 Correctifs secondaires - BACKLOG
+- [ ] Installer `helmet` (en-tetes HTTP securises)
+- [ ] Ajouter `express-rate-limit` (protection DDoS basique)
+- [ ] Validation d'entrees avec `zod` (schemas stricts)
+- [ ] Token API optionnel (authentification legere)
+
 ## Backlog - Fonctionnalites futures
 
 ### Exploration et comprehension
@@ -83,7 +99,7 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - CI/CD : GitHub Actions
 - TypeScript strict dans les deux projets
 - Stockage : SQLite-vec existant du MCP Memory Service (readonly)
-- Chemin DB : `C:\Users\filli\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\Local\mcp-memory\sqlite_vec.db`
+- Chemin DB : via variable d'environnement `MEMORY_DB_PATH` (requis, defini dans server/.env)
 - Schema : 5 tables (memories, memory_content_fts fts5, memory_embeddings vec0, memory_graph, metadata)
 - Embedding : all-MiniLM-L6-v2 (384 dims, cosine distance)
 - Injection de dependance : `createMemoriesRouter(db)` pour faciliter les tests
@@ -107,3 +123,4 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 | 2026-02-14 | Sprint 5.3 detection doublons | Endpoint Union-Find, page /duplicates, slider seuil, 140 tests verts |
 | 2026-02-14 | Sprint 6 timeline + qualite | Timeline chronologique, QualityVoter etoiles 1-5, 175 tests verts |
 | 2026-02-14 | Sprint 7 tags + raccourcis | Gestion tags (rename/delete/merge), raccourcis clavier, 215 tests verts |
+| 2026-02-14 | Sprint 8.1 securite | 6 correctifs : bind localhost, CORS, body limit, env DB, FTS5 sanitize, LIKE escape, 221 tests verts |

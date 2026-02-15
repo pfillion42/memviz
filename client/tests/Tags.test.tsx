@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -135,7 +135,7 @@ describe('Tags', () => {
     const renameButtons = screen.getAllByLabelText(/Renommer/);
     await user.click(renameButtons[0]);
 
-    const input = screen.getByDisplayValue('test');
+    screen.getByDisplayValue('test');
     await user.keyboard('{Escape}');
 
     await waitFor(() => {

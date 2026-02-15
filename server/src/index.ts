@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { getDb, closeDb } from './db';
@@ -7,8 +8,21 @@ import { initEmbedder, getEmbedder } from './embedder';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
-app.use(express.json());
+// Securite : CORS restreint aux origines autorisees
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173').split(',');
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permettre les requetes sans origin (curl, Postman, meme serveur)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Origine non autorisee par CORS'));
+    }
+  },
+}));
+
+// Securite : limiter la taille du body a 5 MB
+app.use(express.json({ limit: '5mb' }));
 
 // Health check
 app.get('/api/health', (_req, res) => {
@@ -30,8 +44,10 @@ async function start() {
   app.use('/api', createMemoriesRouter(getDb(), { embedFn }));
 
   if (process.env.NODE_ENV !== 'test') {
-    app.listen(PORT, () => {
-      console.log(`Serveur memviz demarre sur le port ${PORT}`);
+    // Securite : ecouter uniquement sur localhost (pas expose au reseau)
+    const HOST = process.env.HOST || '127.0.0.1';
+    app.listen(Number(PORT), HOST, () => {
+      console.log(`Serveur memviz demarre sur ${HOST}:${PORT}`);
     });
   }
 }

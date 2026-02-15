@@ -1,8 +1,10 @@
 import Database, { Database as DatabaseType } from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
 
-const DEFAULT_DB_PATH = process.env.MEMORY_DB_PATH
-  || 'C:\\Users\\filli\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\Local\\mcp-memory\\sqlite_vec.db';
+const DEFAULT_DB_PATH = process.env.MEMORY_DB_PATH;
+if (!DEFAULT_DB_PATH && process.env.NODE_ENV !== 'test') {
+  throw new Error('Variable d\'environnement MEMORY_DB_PATH requise. Definir dans .env ou en ligne de commande.');
+}
 
 const READONLY = process.env.MEMORY_DB_READONLY !== 'false';
 
@@ -10,6 +12,9 @@ let db: DatabaseType | null = null;
 
 export function getDb(): DatabaseType {
   if (!db) {
+    if (!DEFAULT_DB_PATH) {
+      throw new Error('Variable d\'environnement MEMORY_DB_PATH requise.');
+    }
     db = new Database(DEFAULT_DB_PATH, { readonly: READONLY });
     sqliteVec.load(db);
   }

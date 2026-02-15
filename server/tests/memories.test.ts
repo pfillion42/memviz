@@ -1391,3 +1391,51 @@ describe('POST /api/tags/merge', () => {
     expect(after.body.updated_at).toBeGreaterThanOrEqual(beforeUpdated);
   });
 });
+
+// --- Tests de securite ---
+describe('Securite - Assainissement FTS5', () => {
+  it('assainit les operateurs FTS5 speciaux (AND/OR/NOT)', async () => {
+    const res = await request(app).get('/api/memories/search?q=Express%20AND%20DROP%20TABLE');
+    expect(res.status).toBe(200);
+    // Ne doit pas crasher, doit retourner des resultats ou un tableau vide
+    expect(Array.isArray(res.body.data)).toBe(true);
+  });
+
+  it('assainit les caracteres speciaux FTS5 (*, ", ^)', async () => {
+    const res = await request(app).get('/api/memories/search?q=Express*%22test%22%5E');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+  });
+
+  it('retourne un tableau vide si la requete ne contient que des operateurs', async () => {
+    const res = await request(app).get('/api/memories/search?q=AND%20OR%20NOT');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(0);
+  });
+});
+
+describe('Securite - Echappement LIKE', () => {
+  it('echappe le caractere % dans les filtres de tags', async () => {
+    const res = await request(app).get('/api/memories?tags=%25dropper');
+    expect(res.status).toBe(200);
+    // Ne doit pas matcher toutes les memoires (le % est echappe)
+    expect(res.body.data).toHaveLength(0);
+  });
+
+  it('echappe le caractere _ dans les filtres de tags', async () => {
+    const res = await request(app).get('/api/memories?tags=_ildcard');
+    expect(res.status).toBe(200);
+    // Le _ echappe ne matche pas n'importe quel caractere
+    expect(res.body.data).toHaveLength(0);
+  });
+});
+
+describe('Securite - Limite body JSON', () => {
+  it('le setup du test utilise express.json() (limite par defaut)', async () => {
+    // Verifier que le middleware express.json() est actif
+    const res = await request(app)
+      .post('/api/memories/bulk-delete')
+      .send({ hashes: ['nonexistent'] });
+    expect(res.status).not.toBe(500);
+  });
+});

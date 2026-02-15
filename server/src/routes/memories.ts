@@ -52,6 +52,21 @@ interface RouterOptions {
   embedFn?: EmbedFn;
 }
 
+// Securite : assainir les entrees FTS5 MATCH (retirer les operateurs speciaux)
+function sanitizeFts5(input: string): string {
+  // Retirer les caracteres speciaux FTS5 : AND, OR, NOT, *, NEAR, ^, "
+  // Garder uniquement les mots alphanumeriques
+  return input
+    .replace(/[*"^(){}[\]]/g, '')
+    .replace(/\b(AND|OR|NOT|NEAR)\b/gi, '')
+    .trim();
+}
+
+// Securite : echapper les caracteres speciaux LIKE (% et _)
+function escapeLike(input: string): string {
+  return input.replace(/[%_]/g, '\\$&');
+}
+
 export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = {}): Router {
   const router = Router();
 
@@ -280,6 +295,13 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
       return;
     }
 
+    // Securite : assainir l'entree FTS5 pour eviter les injections
+    const sanitized = sanitizeFts5(q);
+    if (!sanitized) {
+      res.json({ data: [] });
+      return;
+    }
+
     const rows = db.prepare(`
       SELECT m.* FROM memories m
       WHERE m.id IN (
@@ -287,7 +309,7 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
       )
       AND m.deleted_at IS NULL
       ORDER BY m.created_at DESC
-    `).all(q) as MemoryRow[];
+    `).all(sanitized) as MemoryRow[];
 
     res.json({ data: rows.map(parseMemory) });
   });
@@ -526,10 +548,10 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     if (tagsFilter) {
       const tags = tagsFilter.split(',').map(t => t.trim()).filter(Boolean);
       if (tags.length > 0) {
-        const tagConditions = tags.map(() => 'tags LIKE ?').join(' OR ');
+        const tagConditions = tags.map(() => "tags LIKE ? ESCAPE '\\'").join(' OR ');
         whereClauses.push(`(${tagConditions})`);
         for (const tag of tags) {
-          whereParams.push(`%${tag}%`);
+          whereParams.push(`%${escapeLike(tag)}%`);
         }
       }
     }
@@ -695,10 +717,10 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     if (tagsFilter) {
       const tags = tagsFilter.split(',').map(t => t.trim()).filter(Boolean);
       if (tags.length > 0) {
-        const tagConditions = tags.map(() => 'tags LIKE ?').join(' OR ');
+        const tagConditions = tags.map(() => "tags LIKE ? ESCAPE '\\'").join(' OR ');
         whereClauses.push(`(${tagConditions})`);
         for (const tag of tags) {
-          whereParams.push(`%${tag}%`);
+          whereParams.push(`%${escapeLike(tag)}%`);
         }
       }
     }
@@ -860,7 +882,7 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
 
   // PUT /api/tags/:tag - renommer un tag dans toutes les memoires
   router.put('/tags/:tag', (req: Request, res: Response) => {
-    const { tag } = req.params;
+    const tag = req.params.tag as string;
     const { new_name } = req.body;
 
     if (!new_name || typeof new_name !== 'string' || !new_name.trim()) {
@@ -874,8 +896,8 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
 
     // Trouver toutes les memoires actives contenant ce tag
     const rows = db.prepare(
-      'SELECT id, content_hash, tags FROM memories WHERE deleted_at IS NULL AND tags LIKE ?'
-    ).all(`%${tag}%`) as { id: number; content_hash: string; tags: string }[];
+      "SELECT id, content_hash, tags FROM memories WHERE deleted_at IS NULL AND tags LIKE ? ESCAPE '\\'"
+    ).all(`%${escapeLike(tag)}%`) as { id: number; content_hash: string; tags: string }[];
 
     let updated = 0;
 
@@ -908,14 +930,14 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
 
   // DELETE /api/tags/:tag - retirer un tag de toutes les memoires
   router.delete('/tags/:tag', (req: Request, res: Response) => {
-    const { tag } = req.params;
+    const tag = req.params.tag as string;
     const now = Date.now() / 1000;
     const nowIso = new Date().toISOString();
 
     // Trouver toutes les memoires actives contenant ce tag
     const rows = db.prepare(
-      'SELECT id, content_hash, tags FROM memories WHERE deleted_at IS NULL AND tags LIKE ?'
-    ).all(`%${tag}%`) as { id: number; content_hash: string; tags: string }[];
+      "SELECT id, content_hash, tags FROM memories WHERE deleted_at IS NULL AND tags LIKE ? ESCAPE '\\'"
+    ).all(`%${escapeLike(tag)}%`) as { id: number; content_hash: string; tags: string }[];
 
     let updated = 0;
 
@@ -962,8 +984,8 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     const nowIso = new Date().toISOString();
 
     // Construire la condition LIKE pour trouver les memoires avec au moins un tag source
-    const likeConditions = sources.map(() => 'tags LIKE ?').join(' OR ');
-    const likeParams = sources.map((s: string) => `%${s}%`);
+    const likeConditions = sources.map(() => "tags LIKE ? ESCAPE '\\'").join(' OR ');
+    const likeParams = sources.map((s: string) => `%${escapeLike(s)}%`);
 
     const rows = db.prepare(
       `SELECT id, content_hash, tags FROM memories WHERE deleted_at IS NULL AND (${likeConditions})`
@@ -973,7 +995,7 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
 
     const mergeAll = db.transaction(() => {
       for (const row of rows) {
-        let currentTags = row.tags.split(',').map(t => t.trim()).filter(Boolean);
+        const currentTags = row.tags.split(',').map(t => t.trim()).filter(Boolean);
         let modified = false;
 
         // Retirer tous les tags sources
