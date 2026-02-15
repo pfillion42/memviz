@@ -1517,6 +1517,135 @@ describe('GET /api/memories/stale', () => {
 });
 
 // --- Tests de securite ---
+// --- POST /api/memories/:hash/access - Incrementer compteur d'acces ---
+describe('POST /api/memories/:hash/access', () => {
+  let accessDb: DatabaseType;
+  let accessApp: express.Express;
+
+  beforeAll(() => {
+    accessDb = createTestDb();
+    accessApp = express();
+    accessApp.use(express.json());
+    accessApp.use('/api', createMemoriesRouter(accessDb, { embedFn: mockEmbedFn }));
+  });
+
+  afterAll(() => {
+    accessDb.close();
+  });
+
+  it('incremente access_count de 1 (hash_aaa111 : 3 -> 4)', async () => {
+    const res = await request(accessApp)
+      .post('/api/memories/hash_aaa111/access');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('content_hash', 'hash_aaa111');
+    expect(res.body).toHaveProperty('access_count', 4);
+  });
+
+  it('initialise access_count a 1 si absent dans metadata', async () => {
+    // Creer une memoire sans access_count dans metadata
+    accessDb.prepare(`
+      INSERT INTO memories (content_hash, content, tags, memory_type, metadata,
+        created_at, updated_at, created_at_iso, updated_at_iso, deleted_at)
+      VALUES ('hash_noaccess', 'Memoire sans access_count.', 'test', 'note', '{}',
+        1771088000, 1771088000, '2026-02-14T16:53:20.000Z', '2026-02-14T16:53:20.000Z', NULL)
+    `).run();
+
+    const res = await request(accessApp)
+      .post('/api/memories/hash_noaccess/access');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('access_count', 1);
+  });
+
+  it('met a jour last_accessed_at', async () => {
+    const before = Date.now() / 1000;
+    const res = await request(accessApp)
+      .post('/api/memories/hash_bbb222/access');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('last_accessed_at');
+    expect(res.body.last_accessed_at).toBeGreaterThanOrEqual(Math.floor(before));
+  });
+
+  it('retourne 404 pour hash inexistant', async () => {
+    const res = await request(accessApp)
+      .post('/api/memories/hash_inexistant/access');
+    expect(res.status).toBe(404);
+  });
+
+  it('retourne 404 pour memoire supprimee', async () => {
+    const res = await request(accessApp)
+      .post('/api/memories/hash_ddd444/access');
+    expect(res.status).toBe(404);
+  });
+
+  it('appels multiples incrementent correctement', async () => {
+    // hash_ccc333 a access_count = 0 dans le seed
+    await request(accessApp).post('/api/memories/hash_ccc333/access');
+    await request(accessApp).post('/api/memories/hash_ccc333/access');
+    const res = await request(accessApp).post('/api/memories/hash_ccc333/access');
+    expect(res.status).toBe(200);
+    expect(res.body.access_count).toBe(3);
+  });
+});
+
+// --- GET /api/memories/stats - accessStats ---
+describe('GET /api/memories/stats - accessStats', () => {
+  it('accessStats est present dans la reponse stats', async () => {
+    const res = await request(app).get('/api/memories/stats');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('accessStats');
+  });
+
+  it('totalAccesses est la somme des access_count du seed (12)', async () => {
+    // Seed : aaa=3, bbb=1, ccc=0, eee=5, fff=0, ggg=2, hhh=1 = 12
+    // Note : des tests precedents modifient la DB partagee, utiliser une DB fraiche
+    const freshDb = createTestDb();
+    const freshApp = express();
+    freshApp.use(express.json());
+    freshApp.use('/api', createMemoriesRouter(freshDb, { embedFn: mockEmbedFn }));
+
+    const res = await request(freshApp).get('/api/memories/stats');
+    expect(res.body.accessStats.totalAccesses).toBe(12);
+    freshDb.close();
+  });
+
+  it('topAccessed est trie par access_count DESC', async () => {
+    const freshDb = createTestDb();
+    const freshApp = express();
+    freshApp.use(express.json());
+    freshApp.use('/api', createMemoriesRouter(freshDb, { embedFn: mockEmbedFn }));
+
+    const res = await request(freshApp).get('/api/memories/stats');
+    const top = res.body.accessStats.topAccessed;
+    expect(Array.isArray(top)).toBe(true);
+    for (let i = 1; i < top.length; i++) {
+      expect(top[i].access_count).toBeLessThanOrEqual(top[i - 1].access_count);
+    }
+    freshDb.close();
+  });
+
+  it('topAccessed a content_hash, content, memory_type, access_count', async () => {
+    const freshDb = createTestDb();
+    const freshApp = express();
+    freshApp.use(express.json());
+    freshApp.use('/api', createMemoriesRouter(freshDb, { embedFn: mockEmbedFn }));
+
+    const res = await request(freshApp).get('/api/memories/stats');
+    const top = res.body.accessStats.topAccessed;
+    expect(top.length).toBeGreaterThan(0);
+    const item = top[0];
+    expect(item).toHaveProperty('content_hash');
+    expect(item).toHaveProperty('content');
+    expect(item).toHaveProperty('memory_type');
+    expect(item).toHaveProperty('access_count');
+    freshDb.close();
+  });
+
+  it('avgAccesses est un nombre', async () => {
+    const res = await request(app).get('/api/memories/stats');
+    expect(typeof res.body.accessStats.avgAccesses).toBe('number');
+  });
+});
+
 describe('Securite - Assainissement FTS5', () => {
   it('assainit les operateurs FTS5 speciaux (AND/OR/NOT)', async () => {
     const res = await request(app).get('/api/memories/search?q=Express%20AND%20DROP%20TABLE');

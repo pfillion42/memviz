@@ -22,10 +22,24 @@ export interface MemorySearchResponse {
   data: Memory[];
 }
 
+export interface AccessedMemory {
+  content_hash: string;
+  content: string;
+  memory_type: string | null;
+  access_count: number;
+}
+
+export interface AccessStats {
+  totalAccesses: number;
+  avgAccesses: number;
+  topAccessed: AccessedMemory[];
+}
+
 export interface MemoryStats {
   total: number;
   byType: Record<string, number>;
   byTag: Record<string, number>;
+  accessStats?: AccessStats;
 }
 
 export interface GraphEdge {

@@ -151,6 +151,33 @@ describe('MemoryDetail', () => {
     });
   });
 
+  it('appelle POST /api/memories/:hash/access au montage', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((url, options) => {
+      const urlStr = String(url);
+      const method = (options as RequestInit)?.method || 'GET';
+      if (urlStr.includes('/graph')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_GRAPH) } as Response);
+      }
+      if (urlStr.includes('/access') && method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ content_hash: 'hash_aaa', access_count: 4, last_accessed_at: 1771088600 }),
+        } as Response);
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_MEMORY) } as Response);
+    });
+
+    renderWithRouter('hash_aaa');
+
+    await waitFor(() => {
+      const accessCalls = fetchSpy.mock.calls.filter(
+        ([url, opts]) => String(url).includes('/access') && (opts as RequestInit)?.method === 'POST'
+      );
+      expect(accessCalls.length).toBe(1);
+      expect(String(accessCalls[0][0])).toContain('/api/memories/hash_aaa/access');
+    });
+  });
+
   it('affiche 404 pour un hash inexistant', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
       const urlStr = String(url);

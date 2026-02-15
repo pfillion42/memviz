@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMemory, useMemoryGraph } from '../hooks/useMemory';
 import { useUpdateMemory, useDeleteMemory } from '../hooks/useMutations';
@@ -31,6 +31,15 @@ export function MemoryDetail() {
   const graphQuery = useMemoryGraph(hash || '');
   const updateMutation = useUpdateMemory(hash || '');
   const deleteMutation = useDeleteMemory();
+
+  // Auto-increment acces au montage (fire-and-forget)
+  useEffect(() => {
+    if (hash) {
+      fetch(`/api/memories/${hash}/access`, { method: 'POST' }).catch(() => {
+        // silencieux : ne bloque pas l'affichage
+      });
+    }
+  }, [hash]);
 
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState('');

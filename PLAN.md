@@ -104,6 +104,33 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Navigation : lien "Embeddings" entre Obsoletes et Graphe
 - 8 tests frontend
 
+## Sprint 11 - Compteur d'acces memoire
+
+### 11.1 Backend - POST /:hash/access - COMPLETE
+- Endpoint POST /api/memories/:hash/access (incrementer access_count + set last_accessed_at)
+- 6 tests backend (increment, initialisation, last_accessed_at, 404 hash/supprime, multiples appels)
+
+### 11.2 Backend - Etendre GET /stats avec accessStats - COMPLETE
+- accessStats { totalAccesses, avgAccesses, topAccessed[] } via json_extract
+- 5 tests backend (presence, totalAccesses=12, tri DESC, champs, avgAccesses nombre)
+
+### 11.3 Frontend - Auto-increment sur MemoryDetail - COMPLETE
+- useEffect fire-and-forget POST /api/memories/:hash/access au montage
+- 1 test frontend (verifie l'appel POST au montage)
+
+### 11.4 Frontend - Etendre Dashboard - COMPLETE
+- Types AccessedMemory, AccessStats dans types.ts (accessStats optionnel pour retrocompat)
+- 4e carte "Acces totaux" dans le grid de stats
+- Section "Memoires les plus consultees" (top 10 barres)
+- 4 tests frontend (carte, section, barres, 0 acces)
+- Guard defensif safeAccessStats pour compatibilite avec anciens mocks
+
+### Bilan Sprint 11
+- 11 tests backend + 5 tests frontend = 16 nouveaux tests
+- Total : 280 tests (169 serveur + 111 client), tous verts
+- Build client OK
+- Audit securite : pas de vulnerabilite specifique au sprint, points preexistants (rate-limit, validation zod) dans backlog Sprint 8.2
+
 ## Backlog - Fonctionnalites futures
 
 ### Exploration et comprehension
@@ -123,7 +150,7 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - [ ] Diff entre memoires - comparer deux memoires cote a cote
 
 ### Statistiques et monitoring
-- [ ] Compteur d'acces memoire (hit count) avec statistiques d'utilisation sur le Dashboard
+- [x] Compteur d'acces memoire (hit count) avec statistiques d'utilisation sur le Dashboard (Sprint 11)
 
 ### Qualite
 - [ ] Tests E2E (Playwright/Cypress)
@@ -162,3 +189,4 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 | 2026-02-14 | Sprint 8.1 securite | 6 correctifs : bind localhost, CORS, body limit, env DB, FTS5 sanitize, LIKE escape, 221 tests verts |
 | 2026-02-14 | Sprint 9 theme + obsoletes | Toggle dark/light, page memoires obsoletes, 248 tests verts |
 | 2026-02-14 | Sprint 10 projection 2D | Endpoint UMAP, ScatterPlot canvas, page /embeddings, 264 tests verts |
+| 2026-02-14 | Sprint 11 compteur acces | POST access, accessStats, auto-increment MemoryDetail, Dashboard UI, 280 tests verts |

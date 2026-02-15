@@ -33,7 +33,8 @@ export function Dashboard() {
     return <p style={{ color: 'var(--error)' }}>Erreur lors du chargement des statistiques.</p>;
   }
 
-  const { total, byType, byTag } = statsQuery.data;
+  const { total, byType, byTag, accessStats } = statsQuery.data;
+  const safeAccessStats = accessStats || { totalAccesses: 0, avgAccesses: 0, topAccessed: [] };
 
   const handleExport = async () => {
     try {
@@ -109,6 +110,13 @@ export function Dashboard() {
             {Object.keys(byTag).length}
           </div>
           <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>Tags uniques</div>
+        </div>
+
+        <div style={cardStyle('var(--border-default)')}>
+          <div style={statValue('var(--info)')}>
+            {safeAccessStats.totalAccesses}
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>Acces totaux</div>
         </div>
       </div>
 
@@ -205,6 +213,56 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Top memoires consultees */}
+      {safeAccessStats.topAccessed.length > 0 && (
+        <div style={{
+          marginTop: '24px',
+          backgroundColor: 'var(--bg-surface)',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid var(--border-default)',
+          padding: '20px',
+        }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', color: 'var(--text-primary)' }}>
+            Memoires les plus consultees
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {safeAccessStats.topAccessed.map((mem) => (
+              <div key={mem.content_hash} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{
+                  fontSize: '12px',
+                  minWidth: '150px',
+                  maxWidth: '250px',
+                  color: 'var(--text-secondary)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {mem.content}
+                </span>
+                <div style={{
+                  flex: 1,
+                  height: '6px',
+                  backgroundColor: 'var(--bg-hover)',
+                  borderRadius: 'var(--radius-full)',
+                  overflow: 'hidden',
+                }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${(mem.access_count / (safeAccessStats.topAccessed[0]?.access_count || 1)) * 100}%`,
+                    backgroundColor: 'var(--info)',
+                    borderRadius: 'var(--radius-full)',
+                    minWidth: '4px',
+                    opacity: 0.7,
+                    transition: 'width 0.5s ease',
+                  }} />
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', minWidth: '20px' }}>{mem.access_count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Import/Export */}
       <div style={{

@@ -343,10 +343,36 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
       }
     }
 
+    // Statistiques d'acces via json_extract sur metadata
+    const accessRow = db.prepare(`
+      SELECT
+        COALESCE(SUM(json_extract(metadata, '$.access_count')), 0) as totalAccesses,
+        COALESCE(AVG(json_extract(metadata, '$.access_count')), 0) as avgAccesses
+      FROM memories
+      WHERE deleted_at IS NULL
+    `).get() as { totalAccesses: number; avgAccesses: number };
+
+    const topAccessed = db.prepare(`
+      SELECT
+        content_hash,
+        content,
+        memory_type,
+        COALESCE(json_extract(metadata, '$.access_count'), 0) as access_count
+      FROM memories
+      WHERE deleted_at IS NULL
+      ORDER BY access_count DESC
+      LIMIT 10
+    `).all() as { content_hash: string; content: string; memory_type: string | null; access_count: number }[];
+
     res.json({
       total: totalRow.total,
       byType,
       byTag,
+      accessStats: {
+        totalAccesses: accessRow.totalAccesses,
+        avgAccesses: accessRow.avgAccesses,
+        topAccessed,
+      },
     });
   });
 
@@ -589,6 +615,46 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     res.json({
       groups,
       total: rows.length,
+    });
+  });
+
+  // POST /api/memories/:hash/access - incrementer le compteur d'acces
+  router.post('/memories/:hash/access', (req: Request, res: Response) => {
+    const { hash } = req.params;
+
+    const row = db.prepare(
+      'SELECT * FROM memories WHERE content_hash = ? AND deleted_at IS NULL'
+    ).get(hash) as MemoryRow | undefined;
+
+    if (!row) {
+      res.status(404).json({ error: 'Memoire non trouvee' });
+      return;
+    }
+
+    let metadata: Record<string, unknown> = {};
+    try {
+      if (typeof row.metadata === 'string') {
+        metadata = JSON.parse(row.metadata);
+      }
+    } catch {
+      // metadata invalide, initialiser a vide
+    }
+
+    const currentCount = typeof metadata.access_count === 'number' ? metadata.access_count : 0;
+    metadata.access_count = currentCount + 1;
+    const now = Math.floor(Date.now() / 1000);
+    metadata.last_accessed_at = now;
+
+    db.prepare(`
+      UPDATE memories
+      SET metadata = ?
+      WHERE content_hash = ?
+    `).run(JSON.stringify(metadata), hash);
+
+    res.json({
+      content_hash: hash,
+      access_count: metadata.access_count,
+      last_accessed_at: metadata.last_accessed_at,
     });
   });
 
