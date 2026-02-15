@@ -1,5 +1,28 @@
 # Journal de Developpement
 
+## 2026-02-14 - Sprint 7 : Tags globaux et raccourcis clavier
+
+### Sprint 7.1 - Gestion globale des tags
+- **Backend** : 3 endpoints avec transactions SQLite
+  - `PUT /api/tags/:tag` : renommer un tag dans toutes les memoires (gestion doublons)
+  - `DELETE /api/tags/:tag` : retirer un tag partout (tags → null si vide)
+  - `POST /api/tags/merge` : fusionner plusieurs tags en un seul (sans doublons)
+- **Frontend** : Page `/tags` avec liste triee par compteur, edition inline (Enter/Escape), suppression avec confirmation, fusion par checkboxes + prompt
+- 16 nouveaux tests backend (DB isolee par describe) + 14 tests frontend
+
+### Sprint 7.2 - Raccourcis clavier
+- **Hook** `useKeyboardShortcuts` : j/k (navigation lignes), / (focus recherche), Enter (ouvrir detail), Escape (blur/deselection), ? (aide)
+- **Modal** `KeyboardHelp` : overlay avec tableau des raccourcis, fermeture Escape ou clic dehors
+- Ignore les raccourcis dans input/textarea/select
+- AppContent extrait pour supporter useNavigate dans BrowserRouter
+- 7 tests KeyboardHelp
+
+### Resultats
+- 133 tests serveur + 82 tests client = **215 tests total**, tous verts
+- Equipe 2 agents paralleles (backend-dev + frontend-dev)
+
+---
+
 ## 2026-02-14 - Sprint 6 : Timeline et score de qualite
 
 ### Sprint 6.1 - Vue timeline

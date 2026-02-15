@@ -858,6 +858,156 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     res.json({ nodes, links });
   });
 
+  // PUT /api/tags/:tag - renommer un tag dans toutes les memoires
+  router.put('/tags/:tag', (req: Request, res: Response) => {
+    const { tag } = req.params;
+    const { new_name } = req.body;
+
+    if (!new_name || typeof new_name !== 'string' || !new_name.trim()) {
+      res.status(400).json({ error: 'Le champ new_name (non vide) est requis' });
+      return;
+    }
+
+    const trimmedName = new_name.trim();
+    const now = Date.now() / 1000;
+    const nowIso = new Date().toISOString();
+
+    // Trouver toutes les memoires actives contenant ce tag
+    const rows = db.prepare(
+      'SELECT id, content_hash, tags FROM memories WHERE deleted_at IS NULL AND tags LIKE ?'
+    ).all(`%${tag}%`) as { id: number; content_hash: string; tags: string }[];
+
+    let updated = 0;
+
+    const renameAll = db.transaction(() => {
+      for (const row of rows) {
+        const currentTags = row.tags.split(',').map(t => t.trim()).filter(Boolean);
+        const tagIndex = currentTags.indexOf(tag);
+        if (tagIndex === -1) continue;
+
+        // Remplacer le tag
+        currentTags[tagIndex] = trimmedName;
+
+        // Eviter les doublons si new_name existait deja
+        const uniqueTags = [...new Set(currentTags)];
+        const newTagsStr = uniqueTags.join(',');
+
+        db.prepare(`
+          UPDATE memories
+          SET tags = ?, updated_at = ?, updated_at_iso = ?
+          WHERE id = ?
+        `).run(newTagsStr, now, nowIso, row.id);
+
+        updated++;
+      }
+    });
+
+    renameAll();
+    res.json({ updated, old_tag: tag, new_tag: trimmedName });
+  });
+
+  // DELETE /api/tags/:tag - retirer un tag de toutes les memoires
+  router.delete('/tags/:tag', (req: Request, res: Response) => {
+    const { tag } = req.params;
+    const now = Date.now() / 1000;
+    const nowIso = new Date().toISOString();
+
+    // Trouver toutes les memoires actives contenant ce tag
+    const rows = db.prepare(
+      'SELECT id, content_hash, tags FROM memories WHERE deleted_at IS NULL AND tags LIKE ?'
+    ).all(`%${tag}%`) as { id: number; content_hash: string; tags: string }[];
+
+    let updated = 0;
+
+    const removeAll = db.transaction(() => {
+      for (const row of rows) {
+        const currentTags = row.tags.split(',').map(t => t.trim()).filter(Boolean);
+        const tagIndex = currentTags.indexOf(tag);
+        if (tagIndex === -1) continue;
+
+        // Retirer le tag
+        currentTags.splice(tagIndex, 1);
+        const newTagsStr = currentTags.length > 0 ? currentTags.join(',') : null;
+
+        db.prepare(`
+          UPDATE memories
+          SET tags = ?, updated_at = ?, updated_at_iso = ?
+          WHERE id = ?
+        `).run(newTagsStr, now, nowIso, row.id);
+
+        updated++;
+      }
+    });
+
+    removeAll();
+    res.json({ updated, removed_tag: tag });
+  });
+
+  // POST /api/tags/merge - fusionner plusieurs tags en un seul
+  router.post('/tags/merge', (req: Request, res: Response) => {
+    const { sources, target } = req.body;
+
+    if (!sources || !Array.isArray(sources) || sources.length === 0) {
+      res.status(400).json({ error: 'Le champ sources (tableau non vide) est requis' });
+      return;
+    }
+
+    if (!target || typeof target !== 'string' || !target.trim()) {
+      res.status(400).json({ error: 'Le champ target (non vide) est requis' });
+      return;
+    }
+
+    const trimmedTarget = target.trim();
+    const now = Date.now() / 1000;
+    const nowIso = new Date().toISOString();
+
+    // Construire la condition LIKE pour trouver les memoires avec au moins un tag source
+    const likeConditions = sources.map(() => 'tags LIKE ?').join(' OR ');
+    const likeParams = sources.map((s: string) => `%${s}%`);
+
+    const rows = db.prepare(
+      `SELECT id, content_hash, tags FROM memories WHERE deleted_at IS NULL AND (${likeConditions})`
+    ).all(...likeParams) as { id: number; content_hash: string; tags: string }[];
+
+    let updated = 0;
+
+    const mergeAll = db.transaction(() => {
+      for (const row of rows) {
+        let currentTags = row.tags.split(',').map(t => t.trim()).filter(Boolean);
+        let modified = false;
+
+        // Retirer tous les tags sources
+        for (const source of sources) {
+          const idx = currentTags.indexOf(source);
+          if (idx !== -1) {
+            currentTags.splice(idx, 1);
+            modified = true;
+          }
+        }
+
+        if (!modified) continue;
+
+        // Ajouter le tag cible s'il n'est pas deja present
+        if (!currentTags.includes(trimmedTarget)) {
+          currentTags.push(trimmedTarget);
+        }
+
+        const newTagsStr = currentTags.length > 0 ? currentTags.join(',') : null;
+
+        db.prepare(`
+          UPDATE memories
+          SET tags = ?, updated_at = ?, updated_at_iso = ?
+          WHERE id = ?
+        `).run(newTagsStr, now, nowIso, row.id);
+
+        updated++;
+      }
+    });
+
+    mergeAll();
+    res.json({ updated, merged: sources, into: trimmedTarget });
+  });
+
   // GET /api/tags
   router.get('/tags', (_req: Request, res: Response) => {
     const tagRows = db.prepare(

@@ -19,6 +19,12 @@ beforeEach(() => {
         json: () => Promise.resolve({ groups: [], total: 0 }),
       } as Response);
     }
+    if (urlStr.includes('/api/tags')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: ['tag1', 'tag2'] }),
+      } as Response);
+    }
     return Promise.resolve({
       ok: true,
       json: () => Promise.resolve({ data: [], total: 0, limit: 20, offset: 0 }),
@@ -43,6 +49,7 @@ describe('App', () => {
     expect(screen.getByText('Dashboard')).toBeDefined();
     expect(screen.getByText('Timeline')).toBeDefined();
     expect(screen.getByText('Doublons')).toBeDefined();
+    expect(screen.getByText('Tags')).toBeDefined();
     expect(screen.getByText('Graphe')).toBeDefined();
   });
 

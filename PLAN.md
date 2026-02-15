@@ -46,6 +46,16 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Backend : POST /api/memories/:hash/rate (rating +1/-1, quality_score +/-0.1, clamp 0-1)
 - Frontend : QualityVoter (thumbs up/down, animation flash, mode compact), integre dans MemoryDetail et MemoryList
 
+## Sprint 7 - Tags globaux et raccourcis clavier
+
+### 7.1 Gestion globale des tags - COMPLETE
+- Backend : PUT /api/tags/:tag (rename), DELETE /api/tags/:tag (remove), POST /api/tags/merge (fusion)
+- Frontend : Page /tags avec liste, compteurs, rename inline, suppression, fusion par selection
+
+### 7.2 Raccourcis clavier - COMPLETE
+- Hook useKeyboardShortcuts : j/k navigation, / recherche, Enter ouvrir, Escape annuler, ? aide
+- Modal KeyboardHelp avec liste des raccourcis
+
 ## Backlog - Fonctionnalites futures
 
 ### Exploration et comprehension
@@ -53,7 +63,6 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - [ ] Clustering automatique - grouper par proximite semantique
 
 ### Navigation et UX
-- [ ] Raccourcis clavier (j/k navigation, / recherche, e editer)
 - [ ] Mode clair / toggle theme
 - [ ] Pagination recherche vectorielle
 
@@ -96,4 +105,5 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 | 2026-02-14 | Sprint 5.1 filtres avances | FilterPanel, query params backend, persistence URL, 100 tests verts |
 | 2026-02-14 | Sprint 5.2 operations en masse | Bulk delete/tag/type, BulkActionBar, Dashboard homepage, 126 tests verts |
 | 2026-02-14 | Sprint 5.3 detection doublons | Endpoint Union-Find, page /duplicates, slider seuil, 140 tests verts |
-| 2026-02-14 | Sprint 6 timeline + qualite | Timeline chronologique, QualityVoter thumbs up/down, 171 tests verts |
+| 2026-02-14 | Sprint 6 timeline + qualite | Timeline chronologique, QualityVoter etoiles 1-5, 175 tests verts |
+| 2026-02-14 | Sprint 7 tags + raccourcis | Gestion tags (rename/delete/merge), raccourcis clavier, 215 tests verts |

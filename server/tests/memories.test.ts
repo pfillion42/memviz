@@ -1136,3 +1136,258 @@ describe('Operations en masse', () => {
     });
   });
 });
+
+// --- PUT /api/tags/:tag (renommer un tag) ---
+describe('PUT /api/tags/:tag', () => {
+  let tagDb: DatabaseType;
+  let tagApp: express.Express;
+
+  beforeAll(() => {
+    tagDb = createTestDb();
+    tagApp = express();
+    tagApp.use(express.json());
+    tagApp.use('/api', createMemoriesRouter(tagDb, { embedFn: mockEmbedFn }));
+  });
+
+  afterAll(() => {
+    tagDb.close();
+  });
+
+  it('renomme un tag dans toutes les memoires', async () => {
+    // Le tag "express" est dans hash_aaa111 et hash_hhh888
+    const res = await request(tagApp)
+      .put('/api/tags/express')
+      .send({ new_name: 'expressjs' });
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('updated');
+    expect(res.body.updated).toBe(2);
+    expect(res.body).toHaveProperty('old_tag', 'express');
+    expect(res.body).toHaveProperty('new_tag', 'expressjs');
+
+    // Verifier que le tag a ete renomme dans les memoires
+    const m1 = await request(tagApp).get('/api/memories/hash_aaa111');
+    expect(m1.body.tags).toContain('expressjs');
+    expect(m1.body.tags).not.toContain('express');
+
+    const m2 = await request(tagApp).get('/api/memories/hash_hhh888');
+    expect(m2.body.tags).toContain('expressjs');
+    expect(m2.body.tags).not.toContain('express');
+  });
+
+  it('met a jour updated_at des memoires modifiees', async () => {
+    const before = await request(tagApp).get('/api/memories/hash_bbb222');
+    const beforeUpdated = before.body.updated_at;
+
+    await request(tagApp)
+      .put('/api/tags/architecture')
+      .send({ new_name: 'archi' });
+
+    const after = await request(tagApp).get('/api/memories/hash_bbb222');
+    expect(after.body.updated_at).toBeGreaterThanOrEqual(beforeUpdated);
+  });
+
+  it('retourne 400 si new_name est manquant', async () => {
+    const res = await request(tagApp)
+      .put('/api/tags/express')
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 si new_name est vide', async () => {
+    const res = await request(tagApp)
+      .put('/api/tags/express')
+      .send({ new_name: '' });
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne updated=0 pour un tag inexistant', async () => {
+    const res = await request(tagApp)
+      .put('/api/tags/tag_inexistant_xyz')
+      .send({ new_name: 'nouveau' });
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBe(0);
+  });
+
+  it('preserve les autres tags lors du renommage', async () => {
+    // hash_bbb222 avait "architecture,sqlite,decision" -> "archi" deja renomme
+    // On renomme "sqlite" -> "sqlite3"
+    await request(tagApp)
+      .put('/api/tags/sqlite')
+      .send({ new_name: 'sqlite3' });
+
+    const m = await request(tagApp).get('/api/memories/hash_bbb222');
+    expect(m.body.tags).toContain('sqlite3');
+    expect(m.body.tags).toContain('archi');
+    expect(m.body.tags).toContain('decision');
+    expect(m.body.tags).not.toContain('sqlite');
+  });
+});
+
+// --- DELETE /api/tags/:tag (retirer un tag de toutes les memoires) ---
+describe('DELETE /api/tags/:tag', () => {
+  let tagDb: DatabaseType;
+  let tagApp: express.Express;
+
+  beforeAll(() => {
+    tagDb = createTestDb();
+    tagApp = express();
+    tagApp.use(express.json());
+    tagApp.use('/api', createMemoriesRouter(tagDb, { embedFn: mockEmbedFn }));
+  });
+
+  afterAll(() => {
+    tagDb.close();
+  });
+
+  it('retire un tag de toutes les memoires', async () => {
+    // Le tag "filtre" est dans hash_fff666 et hash_ggg777
+    const res = await request(tagApp).delete('/api/tags/filtre');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('updated', 2);
+    expect(res.body).toHaveProperty('removed_tag', 'filtre');
+
+    // Verifier le retrait
+    const m1 = await request(tagApp).get('/api/memories/hash_fff666');
+    expect(m1.body.tags).not.toContain('filtre');
+
+    const m2 = await request(tagApp).get('/api/memories/hash_ggg777');
+    expect(m2.body.tags).not.toContain('filtre');
+  });
+
+  it('met tags a null si la memoire n\'a plus de tags', async () => {
+    // hash_fff666 a tags = "filtre,test" -> "filtre" retire ci-dessus, reste "test"
+    // On retire "test" aussi
+    await request(tagApp).delete('/api/tags/test');
+
+    const m = await request(tagApp).get('/api/memories/hash_fff666');
+    // tags parse en tableau vide quand null
+    expect(m.body.tags).toHaveLength(0);
+  });
+
+  it('met a jour updated_at des memoires modifiees', async () => {
+    const before = await request(tagApp).get('/api/memories/hash_aaa111');
+    const beforeUpdated = before.body.updated_at;
+
+    await request(tagApp).delete('/api/tags/config');
+
+    const after = await request(tagApp).get('/api/memories/hash_aaa111');
+    expect(after.body.updated_at).toBeGreaterThanOrEqual(beforeUpdated);
+  });
+
+  it('retourne updated=0 pour un tag inexistant', async () => {
+    const res = await request(tagApp).delete('/api/tags/tag_inexistant_xyz');
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBe(0);
+  });
+
+  it('preserve les autres tags lors du retrait', async () => {
+    // hash_aaa111 avait "express,typescript,config" -> config retire ci-dessus
+    const m = await request(tagApp).get('/api/memories/hash_aaa111');
+    expect(m.body.tags).toContain('express');
+    expect(m.body.tags).toContain('typescript');
+    expect(m.body.tags).not.toContain('config');
+  });
+});
+
+// --- POST /api/tags/merge (fusionner plusieurs tags en un seul) ---
+describe('POST /api/tags/merge', () => {
+  let tagDb: DatabaseType;
+  let tagApp: express.Express;
+
+  beforeAll(() => {
+    tagDb = createTestDb();
+    tagApp = express();
+    tagApp.use(express.json());
+    tagApp.use('/api', createMemoriesRouter(tagDb, { embedFn: mockEmbedFn }));
+  });
+
+  afterAll(() => {
+    tagDb.close();
+  });
+
+  it('fusionne plusieurs tags en un seul', async () => {
+    // "filtre" et "test" dans hash_fff666 et hash_ggg777
+    const res = await request(tagApp)
+      .post('/api/tags/merge')
+      .send({ sources: ['filtre', 'test'], target: 'test-filter' });
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('updated');
+    expect(res.body.updated).toBeGreaterThan(0);
+    expect(res.body).toHaveProperty('merged');
+    expect(res.body.merged).toContain('filtre');
+    expect(res.body.merged).toContain('test');
+    expect(res.body).toHaveProperty('into', 'test-filter');
+
+    // Verifier que les memoires ont le tag cible et plus les sources
+    const m1 = await request(tagApp).get('/api/memories/hash_fff666');
+    expect(m1.body.tags).toContain('test-filter');
+    expect(m1.body.tags).not.toContain('filtre');
+    expect(m1.body.tags).not.toContain('test');
+
+    const m2 = await request(tagApp).get('/api/memories/hash_ggg777');
+    expect(m2.body.tags).toContain('test-filter');
+    expect(m2.body.tags).not.toContain('filtre');
+    expect(m2.body.tags).not.toContain('test');
+  });
+
+  it('evite les doublons si la memoire a deja le tag cible', async () => {
+    // hash_aaa111 a "express,typescript,config"
+    // Fusionner "config" en "express" (express deja present)
+    const res = await request(tagApp)
+      .post('/api/tags/merge')
+      .send({ sources: ['config'], target: 'express' });
+    expect(res.status).toBe(200);
+
+    const m = await request(tagApp).get('/api/memories/hash_aaa111');
+    const expressCount = m.body.tags.filter((t: string) => t === 'express').length;
+    expect(expressCount).toBe(1);
+    expect(m.body.tags).not.toContain('config');
+  });
+
+  it('retourne 400 si sources est manquant', async () => {
+    const res = await request(tagApp)
+      .post('/api/tags/merge')
+      .send({ target: 'final' });
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 si sources est un tableau vide', async () => {
+    const res = await request(tagApp)
+      .post('/api/tags/merge')
+      .send({ sources: [], target: 'final' });
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 si target est manquant', async () => {
+    const res = await request(tagApp)
+      .post('/api/tags/merge')
+      .send({ sources: ['tag1'] });
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 si target est vide', async () => {
+    const res = await request(tagApp)
+      .post('/api/tags/merge')
+      .send({ sources: ['tag1'], target: '' });
+    expect(res.status).toBe(400);
+  });
+
+  it('gere les memoires avec plusieurs tags sources sans doublon', async () => {
+    // hash_fff666 et hash_ggg777 avaient "filtre,test" -> devenu "test-filter"
+    const m = await request(tagApp).get('/api/memories/hash_fff666');
+    const count = m.body.tags.filter((t: string) => t === 'test-filter').length;
+    expect(count).toBe(1);
+  });
+
+  it('met a jour updated_at des memoires modifiees', async () => {
+    const before = await request(tagApp).get('/api/memories/hash_hhh888');
+    const beforeUpdated = before.body.updated_at;
+
+    await request(tagApp)
+      .post('/api/tags/merge')
+      .send({ sources: ['backend'], target: 'back' });
+
+    const after = await request(tagApp).get('/api/memories/hash_hhh888');
+    expect(after.body.updated_at).toBeGreaterThanOrEqual(beforeUpdated);
+  });
+});
