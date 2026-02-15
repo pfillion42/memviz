@@ -1,5 +1,29 @@
 # Journal de Developpement
 
+## 2026-02-14 - Sprint 5.1 + 5.2 : Filtres et operations en masse
+
+### Sprint 5.1 - Filtres avances
+- **Backend** : query params type, tags (OR logique LIKE), from/to (ISO→timestamp), quality_min/max (json_extract)
+- **Frontend** : FilterPanel collapsible, checkboxes tags, date range, slider qualite
+- Persistence URL via useSearchParams (bookmarkable)
+- Refactor : useState initializer au lieu de useEffect pour eviter warning exhaustive-deps
+- 14 nouveaux tests backend + 6 frontend = 100 tests total
+
+### Sprint 5.2 - Operations en masse
+- **Backend** : POST bulk-delete (soft delete), bulk-tag (add/remove, gestion doublons), bulk-type
+- **Frontend** : BulkActionBar (position fixed bottom), checkboxes selection, Set<string> pour perf O(1)
+- window.prompt()/confirm() pour les dialogs MVP
+- Dashboard comme page d'accueil (/ → Dashboard, /memories → MemoryList)
+- 19 nouveaux tests backend + 7 frontend = 126 tests total
+
+### Decisions
+- Tags filtres : OR logique (au moins un tag matche) - plus intuitif que AND
+- Qualite : json_extract(metadata, '$.quality_score') en SQLite
+- Filtres + recherche FTS/Vector : pas encore supportes ensemble (limitation documentee)
+- Equipe 2 agents paralleles (backend-dev + frontend-dev) pour chaque sprint
+
+---
+
 ## 2026-02-14 - Initialisation du projet
 
 ### Decisions prises

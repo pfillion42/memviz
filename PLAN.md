@@ -23,48 +23,25 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 
 ## Sprint 5 - Filtrage, doublons et operations en masse
 
-### 5.1 Filtres avances (MemoryList)
-**Backend** : `GET /api/memories?type=note&tags=python,react&from=2026-01-01&to=2026-02-14&quality_min=0.5`
-- Parametres query : `type`, `tags` (virgule-separes), `from`, `to` (dates ISO), `quality_min`, `quality_max`
-- Combinables entre eux (AND logique)
-- Compatible avec la pagination existante (offset/limit)
+### 5.1 Filtres avances (MemoryList) - COMPLETE
+- Backend : query params type, tags, from, to, quality_min, quality_max (AND logique, pagination compatible)
+- Frontend : FilterPanel collapsible, persistence URL via useSearchParams, badge filtres actifs
 
-**Frontend** : Panneau de filtres dans MemoryList
-- Dropdown type (liste dynamique depuis l'API)
-- Multi-select tags (depuis GET /api/tags existant)
-- Date range picker (from/to)
-- Slider qualite (0-1)
-- Bouton "Reinitialiser filtres"
-- Les filtres persistent dans l'URL (query params) pour le partage/bookmarks
+### 5.2 Operations en masse - COMPLETE
+- Backend : POST bulk-delete, bulk-tag, bulk-type avec validation
+- Frontend : checkboxes, BulkActionBar fixee en bas, confirmation avant suppression
+- Dashboard comme page d'accueil (/ → Dashboard, /memories → MemoryList)
 
-### 5.2 Detection de doublons
+### 5.3 Detection de doublons - A FAIRE
 **Backend** : `GET /api/memories/duplicates?threshold=0.9`
 - Pour chaque memoire, chercher les voisins vectoriels avec similarite > threshold
 - Retourner les groupes de doublons (clusters) tries par similarite decroissante
-- Exclure les paires deja dans le graphe d'associations
 
 **Frontend** : Page /duplicates
 - Liste des groupes de doublons avec pourcentage de similarite
 - Apercu du contenu cote a cote
-- Actions : fusionner (garder un, supprimer les autres), ignorer, marquer comme distincts
+- Actions : fusionner (garder un, supprimer les autres), ignorer
 - Compteur de doublons dans le Dashboard
-
-### 5.3 Operations en masse
-**Backend** :
-- `POST /api/memories/bulk-delete` : body `{ hashes: string[] }`
-- `POST /api/memories/bulk-tag` : body `{ hashes: string[], add_tags: string[], remove_tags: string[] }`
-- `POST /api/memories/bulk-type` : body `{ hashes: string[], memory_type: string }`
-
-**Frontend** : Mode selection dans MemoryList
-- Checkbox par ligne + "Selectionner tout"
-- Barre d'actions flottante : Supprimer, Ajouter tag, Changer type
-- Confirmation modale avant suppression
-- Compteur de selection
-
-### Ordre d'implementation
-1. Filtres avances (backend + frontend)
-2. Operations en masse (backend + frontend)
-3. Detection de doublons (backend + frontend)
 
 ## Backlog - Fonctionnalites futures
 
@@ -101,7 +78,7 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Embedding : all-MiniLM-L6-v2 (384 dims, cosine distance)
 - Injection de dependance : `createMemoriesRouter(db)` pour faciliter les tests
 - Frontend : React Query + React Router, hooks custom, theme sombre via CSS custom properties
-- Navigation : / (MemoryList), /memories/:hash (MemoryDetail), /dashboard (Dashboard), /graph (GraphView)
+- Navigation : / (Dashboard), /memories (MemoryList), /memories/:hash (MemoryDetail), /graph (GraphView)
 - Embedder : @huggingface/transformers (all-MiniLM-L6-v2), injection de dependance pour tests
 - Graphe : react-force-graph-2d pour la visualisation force-directed
 - Mode read/write : configurable via MEMORY_DB_READONLY env var
@@ -115,3 +92,5 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 | 2026-02-14 | Sprint 2 frontend UI (TDD) | 3 pages, 5 hooks, 4 composants, 22 tests verts, build OK |
 | 2026-02-14 | Sprint 3 features avancees (TDD) | PUT/DELETE, vector search, graphe viz, import/export, 52+28=80 tests verts |
 | 2026-02-14 | Sprint 4 redesign UI + ESLint | Theme sombre moderne, logo SVG, ESLint v9 flat config, 80 tests verts |
+| 2026-02-14 | Sprint 5.1 filtres avances | FilterPanel, query params backend, persistence URL, 100 tests verts |
+| 2026-02-14 | Sprint 5.2 operations en masse | Bulk delete/tag/type, BulkActionBar, Dashboard homepage, 126 tests verts |
