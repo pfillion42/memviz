@@ -17,8 +17,11 @@
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
     "express": "^4.21.0",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
     "sqlite-vec": "^0.1.7-alpha.2",
-    "umap-js": "^1.4.0"
+    "umap-js": "^1.4.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

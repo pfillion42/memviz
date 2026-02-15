@@ -1,7 +1,64 @@
 import { Router, Request, Response } from 'express';
 import { Database as DatabaseType } from 'better-sqlite3';
 import { UMAP } from 'umap-js';
+import { z } from 'zod';
 import type { EmbedFn } from '../embedder';
+
+// --- Schemas de validation zod ---
+
+const updateMemorySchema = z.object({
+  tags: z.array(z.string()).optional(),
+  memory_type: z.string().optional(),
+  content: z.string().optional(),
+}).refine(d => d.tags || d.memory_type || d.content, {
+  message: 'Au moins un champ a modifier est requis (tags, memory_type, content)',
+});
+
+const rateMemorySchema = z.union([
+  z.object({ score: z.number().min(0).max(1), rating: z.undefined().optional() }),
+  z.object({ rating: z.union([z.literal(1), z.literal(-1)]), score: z.undefined().optional() }),
+]);
+
+const bulkDeleteSchema = z.object({
+  hashes: z.array(z.string()).nonempty('Le champ hashes (tableau non vide) est requis'),
+});
+
+const bulkTagSchema = z.object({
+  hashes: z.array(z.string()).nonempty('Le champ hashes (tableau non vide) est requis'),
+  add_tags: z.array(z.string()).optional(),
+  remove_tags: z.array(z.string()).optional(),
+}).refine(d => d.add_tags || d.remove_tags, {
+  message: 'Au moins add_tags ou remove_tags est requis',
+});
+
+const bulkTypeSchema = z.object({
+  hashes: z.array(z.string()).nonempty('Le champ hashes (tableau non vide) est requis'),
+  memory_type: z.string().min(1, 'Le champ memory_type est requis'),
+});
+
+const importSchema = z.object({
+  memories: z.array(z.any()),
+});
+
+const renameTagSchema = z.object({
+  new_name: z.string().min(1, 'Le champ new_name (non vide) est requis'),
+});
+
+const mergeTagsSchema = z.object({
+  sources: z.array(z.string()).nonempty('Le champ sources (tableau non vide) est requis'),
+  target: z.string().min(1, 'Le champ target (non vide) est requis'),
+});
+
+// Helper : valider le body avec un schema zod, retourne le body parse ou envoie 400
+function validateBody<T>(schema: z.ZodType<T>, req: Request, res: Response): T | null {
+  const result = schema.safeParse(req.body);
+  if (!result.success) {
+    const firstIssue = result.error.issues[0];
+    res.status(400).json({ error: firstIssue.message });
+    return null;
+  }
+  return result.data;
+}
 
 interface MemoryRow {
   id: number;
@@ -709,12 +766,9 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
 
   // POST /api/memories/bulk-delete - suppression en masse (soft delete)
   router.post('/memories/bulk-delete', (req: Request, res: Response) => {
-    const { hashes } = req.body;
-
-    if (!hashes || !Array.isArray(hashes) || hashes.length === 0) {
-      res.status(400).json({ error: 'Le champ hashes (tableau non vide) est requis' });
-      return;
-    }
+    const body = validateBody(bulkDeleteSchema, req, res);
+    if (!body) return;
+    const { hashes } = body;
 
     const now = Date.now() / 1000;
     const placeholders = hashes.map(() => '?').join(',');
@@ -731,17 +785,9 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
 
   // POST /api/memories/bulk-tag - ajout/retrait de tags en masse
   router.post('/memories/bulk-tag', (req: Request, res: Response) => {
-    const { hashes, add_tags, remove_tags } = req.body;
-
-    if (!hashes || !Array.isArray(hashes) || hashes.length === 0) {
-      res.status(400).json({ error: 'Le champ hashes (tableau non vide) est requis' });
-      return;
-    }
-
-    if (!add_tags && !remove_tags) {
-      res.status(400).json({ error: 'Au moins add_tags ou remove_tags est requis' });
-      return;
-    }
+    const body = validateBody(bulkTagSchema, req, res);
+    if (!body) return;
+    const { hashes, add_tags, remove_tags } = body;
 
     const now = Date.now() / 1000;
     const nowIso = new Date().toISOString();
@@ -794,17 +840,9 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
 
   // POST /api/memories/bulk-type - changement de type en masse
   router.post('/memories/bulk-type', (req: Request, res: Response) => {
-    const { hashes, memory_type } = req.body;
-
-    if (!hashes || !Array.isArray(hashes) || hashes.length === 0) {
-      res.status(400).json({ error: 'Le champ hashes (tableau non vide) est requis' });
-      return;
-    }
-
-    if (!memory_type) {
-      res.status(400).json({ error: 'Le champ memory_type est requis' });
-      return;
-    }
+    const body = validateBody(bulkTypeSchema, req, res);
+    if (!body) return;
+    const { hashes, memory_type } = body;
 
     const now = Date.now() / 1000;
     const nowIso = new Date().toISOString();
@@ -838,12 +876,9 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
 
   // POST /api/memories/import - importer des memoires depuis un JSON
   router.post('/memories/import', (req: Request, res: Response) => {
-    const { memories } = req.body;
-
-    if (!memories || !Array.isArray(memories)) {
-      res.status(400).json({ error: 'Le champ memories (tableau) est requis' });
-      return;
-    }
+    const body = validateBody(importSchema, req, res);
+    if (!body) return;
+    const { memories } = body;
 
     const insert = db.prepare(`
       INSERT OR IGNORE INTO memories (content_hash, content, tags, memory_type, metadata,
@@ -1002,26 +1037,12 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
   // Accepte { score: 0-1 } (valeur directe) ou { rating: 1|-1 } (increment)
   router.post('/memories/:hash/rate', (req: Request, res: Response) => {
     const { hash } = req.params;
-    const { rating, score } = req.body;
+    const body = validateBody(rateMemorySchema, req, res);
+    if (!body) return;
+    const { rating, score } = body;
 
-    // Validation : soit score (0-1), soit rating (1/-1)
     const hasScore = score !== undefined && score !== null;
     const hasRating = rating !== undefined && rating !== null;
-
-    if (!hasScore && !hasRating) {
-      res.status(400).json({ error: 'Le champ score (0-1) ou rating (1/-1) est requis' });
-      return;
-    }
-
-    if (hasScore && (typeof score !== 'number' || score < 0 || score > 1)) {
-      res.status(400).json({ error: 'Le champ score doit etre un nombre entre 0 et 1' });
-      return;
-    }
-
-    if (hasRating && rating !== 1 && rating !== -1) {
-      res.status(400).json({ error: 'Le champ rating doit etre 1 ou -1' });
-      return;
-    }
 
     const row = db.prepare(
       'SELECT * FROM memories WHERE content_hash = ? AND deleted_at IS NULL'
@@ -1330,12 +1351,9 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
   // PUT /api/memories/:hash
   router.put('/memories/:hash', (req: Request, res: Response) => {
     const { hash } = req.params;
-    const { tags, memory_type, content } = req.body;
-
-    if (!tags && !memory_type && !content) {
-      res.status(400).json({ error: 'Au moins un champ a modifier est requis (tags, memory_type, content)' });
-      return;
-    }
+    const body = validateBody(updateMemorySchema, req, res);
+    if (!body) return;
+    const { tags, memory_type, content } = body;
 
     const existing = db.prepare(
       'SELECT * FROM memories WHERE content_hash = ? AND deleted_at IS NULL'
@@ -1433,12 +1451,9 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
   // PUT /api/tags/:tag - renommer un tag dans toutes les memoires
   router.put('/tags/:tag', (req: Request, res: Response) => {
     const tag = req.params.tag as string;
-    const { new_name } = req.body;
-
-    if (!new_name || typeof new_name !== 'string' || !new_name.trim()) {
-      res.status(400).json({ error: 'Le champ new_name (non vide) est requis' });
-      return;
-    }
+    const body = validateBody(renameTagSchema, req, res);
+    if (!body) return;
+    const { new_name } = body;
 
     const trimmedName = new_name.trim();
     const now = Date.now() / 1000;
@@ -1517,17 +1532,9 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
 
   // POST /api/tags/merge - fusionner plusieurs tags en un seul
   router.post('/tags/merge', (req: Request, res: Response) => {
-    const { sources, target } = req.body;
-
-    if (!sources || !Array.isArray(sources) || sources.length === 0) {
-      res.status(400).json({ error: 'Le champ sources (tableau non vide) est requis' });
-      return;
-    }
-
-    if (!target || typeof target !== 'string' || !target.trim()) {
-      res.status(400).json({ error: 'Le champ target (non vide) est requis' });
-      return;
-    }
+    const body = validateBody(mergeTagsSchema, req, res);
+    if (!body) return;
+    const { sources, target } = body;
 
     const trimmedTarget = target.trim();
     const now = Date.now() / 1000;

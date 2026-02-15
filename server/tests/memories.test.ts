@@ -2047,3 +2047,114 @@ describe('GET /api/memories/clusters', () => {
     }
   });
 });
+
+// --- Validation zod ---
+describe('Validation zod - PUT /api/memories/:hash', () => {
+  it('retourne 400 si tags n\'est pas un tableau', async () => {
+    const res = await request(app)
+      .put('/api/memories/hash_aaa111')
+      .send({ tags: 'not-an-array' });
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  it('retourne 400 si memory_type n\'est pas une string', async () => {
+    const res = await request(app)
+      .put('/api/memories/hash_aaa111')
+      .send({ memory_type: 123 });
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  it('retourne 400 si content n\'est pas une string', async () => {
+    const res = await request(app)
+      .put('/api/memories/hash_aaa111')
+      .send({ content: 42 });
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
+  });
+});
+
+describe('Validation zod - POST /api/memories/:hash/rate', () => {
+  it('retourne 400 si score est une string', async () => {
+    const res = await request(app)
+      .post('/api/memories/hash_aaa111/rate')
+      .send({ score: 'high' });
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 si rating est 0', async () => {
+    const res = await request(app)
+      .post('/api/memories/hash_aaa111/rate')
+      .send({ rating: 0 });
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 si score et rating sont fournis', async () => {
+    const res = await request(app)
+      .post('/api/memories/hash_aaa111/rate')
+      .send({ score: 0.5, rating: 1 });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('Validation zod - POST /api/memories/bulk-delete', () => {
+  it('retourne 400 si hashes contient des non-strings', async () => {
+    const res = await request(app)
+      .post('/api/memories/bulk-delete')
+      .send({ hashes: [123, 456] });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('Validation zod - POST /api/memories/bulk-tag', () => {
+  it('retourne 400 si add_tags contient des non-strings', async () => {
+    const res = await request(app)
+      .post('/api/memories/bulk-tag')
+      .send({ hashes: ['hash_aaa111'], add_tags: [123] });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('Validation zod - POST /api/memories/bulk-type', () => {
+  it('retourne 400 si memory_type est un nombre', async () => {
+    const res = await request(app)
+      .post('/api/memories/bulk-type')
+      .send({ hashes: ['hash_aaa111'], memory_type: 42 });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('Validation zod - POST /api/memories/import', () => {
+  it('retourne 400 si memories n\'est pas un tableau', async () => {
+    const res = await request(app)
+      .post('/api/memories/import')
+      .send({ memories: 'invalid' });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('Validation zod - PUT /api/tags/:tag', () => {
+  it('retourne 400 si new_name est un nombre', async () => {
+    const res = await request(app)
+      .put('/api/tags/express')
+      .send({ new_name: 123 });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('Validation zod - POST /api/tags/merge', () => {
+  it('retourne 400 si sources contient des non-strings', async () => {
+    const res = await request(app)
+      .post('/api/tags/merge')
+      .send({ sources: [123], target: 'final' });
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 si target est un nombre', async () => {
+    const res = await request(app)
+      .post('/api/tags/merge')
+      .send({ sources: ['tag1'], target: 42 });
+    expect(res.status).toBe(400);
+  });
+});
