@@ -77,12 +77,6 @@ const SCHEMA = `
     value TEXT NOT NULL
   );
 
-  CREATE TABLE IF NOT EXISTS memory_access_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    content_hash TEXT NOT NULL,
-    accessed_at REAL NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_access_log_at ON memory_access_log(accessed_at);
 `;
 
 const SEED_DATA: TestMemory[] = [
@@ -248,15 +242,6 @@ const SEED_METADATA = [
   { key: 'fts5_enabled', value: 'true' },
 ];
 
-// Acces seed : quelques entrees sur 2 jours differents
-const SEED_ACCESS_LOG = [
-  { content_hash: 'hash_aaa111', accessed_at: 1771000100 }, // 2026-02-13
-  { content_hash: 'hash_aaa111', accessed_at: 1771000200 }, // 2026-02-13
-  { content_hash: 'hash_bbb222', accessed_at: 1771088500 }, // 2026-02-14
-  { content_hash: 'hash_eee555', accessed_at: 1771088600 }, // 2026-02-14
-  { content_hash: 'hash_eee555', accessed_at: 1771088700 }, // 2026-02-14
-];
-
 export function createTestDb(): DatabaseType {
   const db = new Database(':memory:');
   sqliteVec.load(db);
@@ -291,15 +276,10 @@ export function createTestDb(): DatabaseType {
     INSERT INTO metadata (key, value) VALUES (@key, @value)
   `);
 
-  const insertAccessLog = db.prepare(`
-    INSERT INTO memory_access_log (content_hash, accessed_at) VALUES (@content_hash, @accessed_at)
-  `);
-
   const seedAll = db.transaction(() => {
     for (const m of SEED_DATA) insertMemory.run(m);
     for (const g of SEED_GRAPH) insertGraph.run(g);
     for (const m of SEED_METADATA) insertMeta.run(m);
-    for (const a of SEED_ACCESS_LOG) insertAccessLog.run(a);
 
     // Inserer des embeddings factices pour les memoires (id 1-5)
     for (let i = 1; i <= SEED_DATA.length; i++) {
@@ -312,6 +292,35 @@ export function createTestDb(): DatabaseType {
   });
 
   seedAll();
+  return db;
+}
+
+// Acces seed : quelques entrees sur 2 jours differents
+const SEED_ACCESS_LOG = [
+  { content_hash: 'hash_aaa111', accessed_at: 1771000100 }, // 2026-02-13
+  { content_hash: 'hash_aaa111', accessed_at: 1771000200 }, // 2026-02-13
+  { content_hash: 'hash_bbb222', accessed_at: 1771088500 }, // 2026-02-14
+  { content_hash: 'hash_eee555', accessed_at: 1771088600 }, // 2026-02-14
+  { content_hash: 'hash_eee555', accessed_at: 1771088700 }, // 2026-02-14
+];
+
+export function createTestAccessLogDb(): DatabaseType {
+  const db = new Database(':memory:');
+  db.exec(`
+    CREATE TABLE memory_access_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      content_hash TEXT NOT NULL,
+      accessed_at REAL NOT NULL
+    );
+    CREATE INDEX idx_access_log_at ON memory_access_log(accessed_at);
+  `);
+
+  const insert = db.prepare(
+    'INSERT INTO memory_access_log (content_hash, accessed_at) VALUES (@content_hash, @accessed_at)'
+  );
+
+  for (const a of SEED_ACCESS_LOG) insert.run(a);
+
   return db;
 }
 

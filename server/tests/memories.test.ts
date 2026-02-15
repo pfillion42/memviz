@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { Database as DatabaseType } from 'better-sqlite3';
-import { createTestDb, ACTIVE_MEMORY_COUNT } from './helpers/test-db';
+import { createTestDb, createTestAccessLogDb, ACTIVE_MEMORY_COUNT } from './helpers/test-db';
 import { createMemoriesRouter } from '../src/routes/memories';
 import type { EmbedFn } from '../src/embedder';
 
@@ -1779,38 +1779,38 @@ describe('GET /api/memories/projection', () => {
   });
 });
 
-// --- POST /api/memories/:hash/access - Insertion dans memory_access_log ---
+// --- POST /api/memories/:hash/access - Insertion dans memory_access_log (DB separee) ---
 describe('POST /api/memories/:hash/access - memory_access_log', () => {
   let logDb: DatabaseType;
+  let logAccessDb: DatabaseType;
   let logApp: express.Express;
 
   beforeAll(() => {
     logDb = createTestDb();
+    logAccessDb = createTestAccessLogDb();
     logApp = express();
     logApp.use(express.json());
-    logApp.use('/api', createMemoriesRouter(logDb, { embedFn: mockEmbedFn }));
+    logApp.use('/api', createMemoriesRouter(logDb, { embedFn: mockEmbedFn, accessLogDb: logAccessDb }));
   });
 
   afterAll(() => {
     logDb.close();
+    logAccessDb.close();
   });
 
   it('insere une ligne dans memory_access_log apres POST /access', async () => {
-    const countBefore = (logDb.prepare('SELECT COUNT(*) as c FROM memory_access_log').get() as { c: number }).c;
+    const countBefore = (logAccessDb.prepare('SELECT COUNT(*) as c FROM memory_access_log').get() as { c: number }).c;
 
     await request(logApp).post('/api/memories/hash_aaa111/access');
 
-    const countAfter = (logDb.prepare('SELECT COUNT(*) as c FROM memory_access_log').get() as { c: number }).c;
+    const countAfter = (logAccessDb.prepare('SELECT COUNT(*) as c FROM memory_access_log').get() as { c: number }).c;
     expect(countAfter).toBe(countBefore + 1);
   });
 
   it('memory_access_log contient le bon content_hash et accessed_at', async () => {
-    // Vider les logs du seed pour ce test
-    const beforeCount = (logDb.prepare('SELECT COUNT(*) as c FROM memory_access_log').get() as { c: number }).c;
-
     await request(logApp).post('/api/memories/hash_bbb222/access');
 
-    const lastLog = logDb.prepare(
+    const lastLog = logAccessDb.prepare(
       'SELECT * FROM memory_access_log ORDER BY id DESC LIMIT 1'
     ).get() as { content_hash: string; accessed_at: number };
 
@@ -1820,7 +1820,7 @@ describe('POST /api/memories/:hash/access - memory_access_log', () => {
   });
 
   it('multiples appels POST /access creent plusieurs lignes', async () => {
-    const countBefore = (logDb.prepare(
+    const countBefore = (logAccessDb.prepare(
       "SELECT COUNT(*) as c FROM memory_access_log WHERE content_hash = 'hash_eee555'"
     ).get() as { c: number }).c;
 
@@ -1828,7 +1828,7 @@ describe('POST /api/memories/:hash/access - memory_access_log', () => {
     await request(logApp).post('/api/memories/hash_eee555/access');
     await request(logApp).post('/api/memories/hash_eee555/access');
 
-    const countAfter = (logDb.prepare(
+    const countAfter = (logAccessDb.prepare(
       "SELECT COUNT(*) as c FROM memory_access_log WHERE content_hash = 'hash_eee555'"
     ).get() as { c: number }).c;
     expect(countAfter).toBe(countBefore + 3);
@@ -1838,17 +1838,20 @@ describe('POST /api/memories/:hash/access - memory_access_log', () => {
 // --- GET /api/memories/usage-stats - Statistiques d'utilisation par periode ---
 describe('GET /api/memories/usage-stats', () => {
   let usageDb: DatabaseType;
+  let usageAccessDb: DatabaseType;
   let usageApp: express.Express;
 
   beforeAll(() => {
     usageDb = createTestDb();
+    usageAccessDb = createTestAccessLogDb();
     usageApp = express();
     usageApp.use(express.json());
-    usageApp.use('/api', createMemoriesRouter(usageDb, { embedFn: mockEmbedFn }));
+    usageApp.use('/api', createMemoriesRouter(usageDb, { embedFn: mockEmbedFn, accessLogDb: usageAccessDb }));
   });
 
   afterAll(() => {
     usageDb.close();
+    usageAccessDb.close();
   });
 
   it('retourne period "day" par defaut', async () => {
@@ -1942,20 +1945,65 @@ describe('GET /api/memories/usage-stats', () => {
   });
 
   it('reponse vide si aucune donnee dans access_log mais creations presentes', async () => {
-    // Creer une DB fraiche sans access_log
-    const emptyLogDb = createTestDb();
-    emptyLogDb.exec('DELETE FROM memory_access_log');
+    const emptyMainDb = createTestDb();
+    const emptyAccessDb = createTestAccessLogDb();
+    emptyAccessDb.exec('DELETE FROM memory_access_log');
 
     const emptyLogApp = express();
     emptyLogApp.use(express.json());
-    emptyLogApp.use('/api', createMemoriesRouter(emptyLogDb, { embedFn: mockEmbedFn }));
+    emptyLogApp.use('/api', createMemoriesRouter(emptyMainDb, { embedFn: mockEmbedFn, accessLogDb: emptyAccessDb }));
 
     const res = await request(emptyLogApp).get('/api/memories/usage-stats?period=day');
     expect(res.status).toBe(200);
     expect(res.body.accesses).toHaveLength(0);
     expect(res.body.creations.length).toBeGreaterThan(0);
 
-    emptyLogDb.close();
+    emptyMainDb.close();
+    emptyAccessDb.close();
+  });
+});
+
+// --- Tests DB separee access log ---
+describe('Access log avec DB separee', () => {
+  it('POST /access reussit avec main DB readonly (pragma query_only)', async () => {
+    const readonlyDb = createTestDb();
+    const accessDb = createTestAccessLogDb();
+
+    readonlyDb.pragma('query_only = ON');
+
+    const readonlyApp = express();
+    readonlyApp.use(express.json());
+    readonlyApp.use('/api', createMemoriesRouter(readonlyDb, { embedFn: mockEmbedFn, accessLogDb: accessDb }));
+
+    const countBefore = (accessDb.prepare('SELECT COUNT(*) as c FROM memory_access_log').get() as { c: number }).c;
+
+    const res = await request(readonlyApp).post('/api/memories/hash_aaa111/access');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('access_count');
+
+    const countAfter = (accessDb.prepare('SELECT COUNT(*) as c FROM memory_access_log').get() as { c: number }).c;
+    expect(countAfter).toBe(countBefore + 1);
+
+    readonlyDb.close();
+    accessDb.close();
+  });
+
+  it('GET /usage-stats lit les acces depuis la DB separee (5 seed)', async () => {
+    const mainDb = createTestDb();
+    const accessDb = createTestAccessLogDb();
+
+    const testApp = express();
+    testApp.use(express.json());
+    testApp.use('/api', createMemoriesRouter(mainDb, { embedFn: mockEmbedFn, accessLogDb: accessDb }));
+
+    const res = await request(testApp).get('/api/memories/usage-stats?period=day');
+    expect(res.status).toBe(200);
+
+    const totalAccesses = res.body.accesses.reduce((sum: number, a: { count: number }) => sum + a.count, 0);
+    expect(totalAccesses).toBe(5);
+
+    mainDb.close();
+    accessDb.close();
   });
 });
 

@@ -194,6 +194,26 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Build client OK
 - Audit securite : pas de vulnerabilite specifique au sprint, points preexistants (rate-limit, helmet, zod) dans backlog Sprint 8.2
 
+## Sprint 14 - DB separee pour les logs d'acces
+
+### 14.1 Refactoring access log DB - COMPLETE
+- Nouveau fichier `server/src/access-log-db.ts` : singleton writable (pattern identique a db.ts)
+- Chemin : `ACCESS_LOG_DB_PATH` env var, ou derive de `MEMORY_DB_PATH` (remplace .db par _access.db)
+- Table `memory_access_log` + index crees au premier appel, pas de sqlite-vec requis
+- `RouterOptions.accessLogDb` optionnel dans createMemoriesRouter
+- POST /:hash/access : UPDATE metadata dans main DB (try/catch readonly), INSERT dans accessLogDb
+- GET /usage-stats : lecture des acces depuis accessLogDb au lieu de la DB principale
+- Comportement graceful si accessLogDb absent (tableau vide, pas d'erreur)
+- `memory_access_log` retiree du schema test principal, nouvelle fonction `createTestAccessLogDb()`
+- 2 nouveaux tests : POST /access avec main DB readonly + GET /usage-stats lit depuis DB separee
+- Correction lint pre-existante (hasRating non utilise)
+
+### Bilan Sprint 14
+- 2 nouveaux tests backend
+- Total : 339 tests (213 serveur + 126 client), tous verts
+- Lint serveur OK
+- Build client inchange
+
 ## Backlog - Fonctionnalites futures
 
 ### Exploration et comprehension
@@ -228,7 +248,8 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 - Chemin DB : via variable d'environnement `MEMORY_DB_PATH` (requis, defini dans server/.env)
 - Schema : 5 tables (memories, memory_content_fts fts5, memory_embeddings vec0, memory_graph, metadata)
 - Embedding : all-MiniLM-L6-v2 (384 dims, cosine distance)
-- Injection de dependance : `createMemoriesRouter(db)` pour faciliter les tests
+- Injection de dependance : `createMemoriesRouter(db, { accessLogDb, embedFn })` pour faciliter les tests
+- Access log : DB separee writable (`access-log-db.ts`), derive de MEMORY_DB_PATH si ACCESS_LOG_DB_PATH absent
 - Frontend : React Query + React Router, hooks custom, theme sombre via CSS custom properties
 - Navigation : / (Dashboard), /timeline (Timeline), /memories (MemoryList), /memories/:hash (MemoryDetail), /duplicates (Duplicates), /tags (Tags), /stale (Stale), /embeddings (EmbeddingView), /clusters (ClusterView), /graph (GraphView)
 - Embedder : @huggingface/transformers (all-MiniLM-L6-v2), injection de dependance pour tests
@@ -258,3 +279,4 @@ avec une interface web moderne et une API backend. Interfacable avec Claude.
 | 2026-02-15 | Sprint 13 clustering semantique | UnionFind classe, GET clusters, ClusterView, ScatterPlot colorMap, 314 tests verts |
 | 2026-02-15 | Sprint 8.2 securite secondaire | helmet, rate-limit, token API, validation zod (8 schemas), 337 tests verts |
 | 2026-02-15 | Lanceur desktop | start/stop-memviz.bat/.ps1, raccourci bureau avec icone SVG→ICO, detection services existants |
+| 2026-02-15 | Sprint 14 DB separee access log | access-log-db.ts singleton, refactoring POST /access + GET /usage-stats, 339 tests verts |

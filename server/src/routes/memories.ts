@@ -108,6 +108,7 @@ function parseMemory(row: MemoryRow) {
 
 interface RouterOptions {
   embedFn?: EmbedFn;
+  accessLogDb?: DatabaseType;
 }
 
 // Securite : assainir les entrees FTS5 MATCH (retirer les operateurs speciaux)
@@ -174,20 +175,6 @@ export class UnionFind {
 
 export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = {}): Router {
   const router = Router();
-
-  // Creer la table memory_access_log si elle n'existe pas (try/catch pour DB readonly)
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS memory_access_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        content_hash TEXT NOT NULL,
-        accessed_at REAL NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_access_log_at ON memory_access_log(accessed_at);
-    `);
-  } catch {
-    // DB en lecture seule, la table n'existe peut-etre pas
-  }
 
   // GET /api/memories/vector-search - recherche par similarite vectorielle
   router.get('/memories/vector-search', async (req: Request, res: Response) => {
@@ -748,17 +735,19 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
       ORDER BY date ASC
     `).all() as { date: string; count: number }[];
 
-    // Acces par periode (depuis memory_access_log)
+    // Acces par periode (depuis la DB de log separee)
     let accesses: { date: string; count: number }[] = [];
-    try {
-      accesses = db.prepare(`
-        SELECT ${accessDateExpr} as date, COUNT(*) as count
-        FROM memory_access_log
-        GROUP BY date
-        ORDER BY date ASC
-      `).all() as { date: string; count: number }[];
-    } catch {
-      // Table absente
+    if (options.accessLogDb) {
+      try {
+        accesses = options.accessLogDb.prepare(`
+          SELECT ${accessDateExpr} as date, COUNT(*) as count
+          FROM memory_access_log
+          GROUP BY date
+          ORDER BY date ASC
+        `).all() as { date: string; count: number }[];
+      } catch {
+        // Table absente
+      }
     }
 
     res.json({ period, creations, accesses });
@@ -1011,19 +1000,22 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     const now = Math.floor(Date.now() / 1000);
     metadata.last_accessed_at = now;
 
-    db.prepare(`
-      UPDATE memories
-      SET metadata = ?
-      WHERE content_hash = ?
-    `).run(JSON.stringify(metadata), hash);
-
-    // Enregistrer l'acces dans le log
+    // Mise a jour metadata dans la DB principale (try/catch pour DB readonly)
     try {
       db.prepare(`
+        UPDATE memories
+        SET metadata = ?
+        WHERE content_hash = ?
+      `).run(JSON.stringify(metadata), hash);
+    } catch {
+      // DB en lecture seule, la mise a jour de metadata est ignoree
+    }
+
+    // Enregistrer l'acces dans la DB de log separee
+    if (options.accessLogDb) {
+      options.accessLogDb.prepare(`
         INSERT INTO memory_access_log (content_hash, accessed_at) VALUES (?, ?)
       `).run(hash, now);
-    } catch {
-      // Table absente (DB readonly sans migration), on ignore
     }
 
     res.json({
@@ -1042,7 +1034,6 @@ export function createMemoriesRouter(db: DatabaseType, options: RouterOptions = 
     const { rating, score } = body;
 
     const hasScore = score !== undefined && score !== null;
-    const hasRating = rating !== undefined && rating !== null;
 
     const row = db.prepare(
       'SELECT * FROM memories WHERE content_hash = ? AND deleted_at IS NULL'

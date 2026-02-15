@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { getDb, closeDb } from './db';
+import { getAccessLogDb, closeAccessLogDb } from './access-log-db';
 import { createMemoriesRouter } from './routes/memories';
 import { initEmbedder, getEmbedder } from './embedder';
 
@@ -71,8 +72,8 @@ async function start() {
     console.warn('Embedder non disponible - recherche vectorielle desactivee.', err);
   }
 
-  // Routes memories (avec embedder si disponible)
-  app.use('/api', createMemoriesRouter(getDb(), { embedFn }));
+  // Routes memories (avec embedder et access log DB si disponibles)
+  app.use('/api', createMemoriesRouter(getDb(), { embedFn, accessLogDb: getAccessLogDb() }));
 
   if (process.env.NODE_ENV !== 'test') {
     // Securite : ecouter uniquement sur localhost (pas expose au reseau)
@@ -85,9 +86,10 @@ async function start() {
 
 start();
 
-// Fermer la DB proprement a l'arret
+// Fermer les DB proprement a l'arret
 process.on('SIGINT', () => {
   closeDb();
+  closeAccessLogDb();
   process.exit(0);
 });
 
