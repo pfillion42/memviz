@@ -47,11 +47,7 @@ It works, it has 349 tests, and I use it daily. But the code reflects the fact t
 
 ## Screenshots
 
-<details>
-<summary><strong>Dashboard</strong> - Stats, usage charts, top accessed memories</summary>
-
 ![Dashboard](docs/Screenshots/dashboard.png)
-</details>
 
 <details>
 <summary><strong>Memories</strong> - Browse, search, filter, and manage</summary>
