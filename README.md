@@ -75,6 +75,22 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
+### Windows desktop shortcut (optional)
+
+The repo includes PowerShell launcher scripts and an `.ico` icon file for a one-click desktop experience on Windows:
+
+```powershell
+# Start both servers (minimized) + open browser
+.\start-memviz.bat
+
+# Stop both servers
+.\stop-memviz.bat
+```
+
+To create a desktop shortcut: right-click on `start-memviz.bat` > **Send to** > **Desktop (create shortcut)**, then change the icon to `memviz.ico` from the repo root.
+
+The start script detects if servers are already running, waits for health checks (60s timeout), and opens your browser automatically.
+
 ## Configuration
 
 All configuration is done through environment variables in `server/.env`:
