@@ -1,7 +1,17 @@
 {
   "name": "memviz-server",
   "version": "1.0.0",
-  "description": "API backend pour l'exploration de memoire vectorielle locale",
+  "description": "Backend API for memviz - local vector memory explorer",
+  "license": "MIT",
+  "author": "pfillion42",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pfillion42/memviz.git",
+    "directory": "server"
+  },
+  "homepage": "https://github.com/pfillion42/memviz",
+  "bugs": "https://github.com/pfillion42/memviz/issues",
+  "keywords": ["vector-database", "sqlite-vec", "memory", "mcp", "express", "api"],
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

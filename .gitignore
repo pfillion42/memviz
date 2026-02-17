@@ -31,3 +31,7 @@ npm-debug.log*
 
 # Cache
 .cache/
+
+# Project-specific (local only)
+PLAN.md
+DEVLOG.md
