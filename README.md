@@ -47,7 +47,35 @@ It works, it has 349 tests, and I use it daily. But the code reflects the fact t
 
 ## Screenshots
 
-<!-- TODO: Add screenshots -->
+<details>
+<summary><strong>Dashboard</strong> - Stats, usage charts, top accessed memories</summary>
+
+![Dashboard](docs/Screenshots/dashboard.png)
+</details>
+
+<details>
+<summary><strong>Memories</strong> - Browse, search, filter, and manage</summary>
+
+![Memories](docs/Screenshots/Memories.png)
+</details>
+
+<details>
+<summary><strong>Timeline</strong> - Chronological view grouped by day</summary>
+
+![Timeline](docs/Screenshots/Timeline.png)
+</details>
+
+<details>
+<summary><strong>Duplicates</strong> - Detect near-duplicates by vector similarity</summary>
+
+![Duplicates](docs/Screenshots/Duplicate.png)
+</details>
+
+<details>
+<summary><strong>Graph</strong> - Association graph with type-colored nodes</summary>
+
+![Graph](docs/Screenshots/Graph.png)
+</details>
 
 ## Prerequisites
 
