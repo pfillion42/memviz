@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { ClusterView } from '../src/pages/ClusterView';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 const MOCK_CLUSTERS = {
   clusters: [
@@ -54,9 +55,11 @@ function renderClusterView(mockData?: typeof MOCK_CLUSTERS) {
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <ClusterView />
-      </MemoryRouter>
+      <LanguageProvider>
+        <MemoryRouter>
+          <ClusterView />
+        </MemoryRouter>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }
@@ -70,7 +73,7 @@ describe('ClusterView', () => {
     renderClusterView();
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Clusters semantiques/i })).toBeDefined();
+      expect(screen.getByRole('heading', { name: /Semantic clusters/i })).toBeDefined();
     });
   });
 
@@ -94,8 +97,8 @@ describe('ClusterView', () => {
     renderClusterView();
 
     await waitFor(() => {
-      expect(screen.getByText(/3 memoires/i)).toBeDefined();
-      expect(screen.getByText(/2 memoires/i)).toBeDefined();
+      expect(screen.getByText(/3 memories/i)).toBeDefined();
+      expect(screen.getByText(/2 memories/i)).toBeDefined();
     });
   });
 
@@ -106,7 +109,7 @@ describe('ClusterView', () => {
       expect(screen.getByTestId('scatter-plot')).toBeDefined();
     });
 
-    const slider = screen.getByLabelText(/Seuil/i) as HTMLInputElement;
+    const slider = screen.getByLabelText(/Threshold/i) as HTMLInputElement;
     expect(slider).toBeDefined();
 
     fireEvent.change(slider, { target: { value: '0.8' } });
@@ -126,7 +129,7 @@ describe('ClusterView', () => {
     renderClusterView(MOCK_EMPTY);
 
     await waitFor(() => {
-      expect(screen.getByText(/Aucun cluster/i)).toBeDefined();
+      expect(screen.getByText(/No clusters/i)).toBeDefined();
     });
   });
 

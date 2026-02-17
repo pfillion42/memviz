@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStaleMemories } from '../hooks/useStaleMemories';
 import type { Memory } from '../types';
+import { useLanguage } from '../i18n/LanguageContext';
 
 async function bulkDeleteMemories(hashes: string[]): Promise<void> {
   const res = await fetch('/api/memories/bulk-delete', {
@@ -13,6 +14,7 @@ async function bulkDeleteMemories(hashes: string[]): Promise<void> {
 }
 
 export function Stale() {
+  const { t } = useLanguage();
   const [days, setDays] = useState(90);
   const [qualityMax, setQualityMax] = useState(0.3);
   const { data, isLoading, refetch } = useStaleMemories(days, qualityMax);
@@ -30,7 +32,7 @@ export function Stale() {
     const hashes = data?.data.map(m => m.content_hash) ?? [];
     if (hashes.length === 0) return;
 
-    if (!window.confirm(`Supprimer ${hashes.length} memoires obsoletes ?`)) {
+    if (!window.confirm(t('stale_confirm_delete').replace('{count}', String(hashes.length)))) {
       return;
     }
 
@@ -43,7 +45,7 @@ export function Stale() {
   };
 
   if (isLoading) {
-    return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
+    return <p style={{ color: 'var(--text-muted)' }}>{t('loading')}</p>;
   }
 
   const memories = data?.data ?? [];
@@ -53,10 +55,10 @@ export function Stale() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-          Memoires obsoletes
+          {t('stale_title')}
           {total > 0 && (
             <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
-              ({total} memoires obsoletes)
+              ({t('stale_count').replace('{count}', String(total))})
             </span>
           )}
         </h2>
@@ -75,7 +77,7 @@ export function Stale() {
               cursor: 'pointer',
             }}
           >
-            Tout supprimer
+            {t('stale_delete_all')}
           </button>
         )}
       </div>
@@ -83,7 +85,7 @@ export function Stale() {
       <div style={{ marginBottom: '16px' }}>
         <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <label htmlFor="age-slider" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Age minimum (jours) :
+            {t('stale_age_label')}
           </label>
           <input
             id="age-slider"
@@ -96,13 +98,13 @@ export function Stale() {
             style={{ flex: 1, maxWidth: '200px' }}
           />
           <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600, minWidth: '40px' }}>
-            {days} j
+            {t('stale_days').replace('{days}', String(days))}
           </span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <label htmlFor="quality-slider" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Qualite max :
+            {t('stale_quality_label')}
           </label>
           <input
             id="quality-slider"
@@ -122,7 +124,7 @@ export function Stale() {
 
       {memories.length === 0 ? (
         <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>
-          Aucune memoire obsolete trouvee.
+          {t('stale_empty')}
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -197,7 +199,7 @@ export function Stale() {
                           borderRadius: '3px',
                         }}
                       >
-                        Qualite: {Math.round((memory.metadata.quality_score as number) * 100)}%
+                        {t('stale_quality')}: {Math.round((memory.metadata.quality_score as number) * 100)}%
                       </span>
                     )}
                   </div>
@@ -217,7 +219,7 @@ export function Stale() {
                     flexShrink: 0,
                   }}
                 >
-                  Supprimer
+                  {t('delete')}
                 </button>
               </div>
             </div>

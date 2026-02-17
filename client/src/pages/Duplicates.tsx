@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useDuplicates } from '../hooks/useDuplicates';
 import type { Memory } from '../types';
+import { useLanguage } from '../i18n/LanguageContext';
 
 async function bulkDeleteMemories(hashes: string[]): Promise<void> {
   const res = await fetch('/api/memories/bulk-delete', {
@@ -12,6 +13,7 @@ async function bulkDeleteMemories(hashes: string[]): Promise<void> {
 }
 
 export function Duplicates() {
+  const { t } = useLanguage();
   const [threshold, setThreshold] = useState(0.9);
   const [ignoredGroups, setIgnoredGroups] = useState<Set<string>>(new Set());
   const { data, isLoading, refetch } = useDuplicates({ threshold });
@@ -34,7 +36,7 @@ export function Duplicates() {
   };
 
   if (isLoading) {
-    return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
+    return <p style={{ color: 'var(--text-muted)' }}>{t('loading')}</p>;
   }
 
   const groups = data?.groups ?? [];
@@ -46,10 +48,10 @@ export function Duplicates() {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-            Detection de doublons
+            {t('dup_title')}
             {totalGroups > 0 && (
               <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                ({totalGroups} groupes)
+                ({t('dup_groups').replace('{count}', String(totalGroups))})
               </span>
             )}
           </h2>
@@ -57,7 +59,7 @@ export function Duplicates() {
 
         <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <label htmlFor="threshold-slider" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Seuil de similarite :
+            {t('dup_threshold')}
           </label>
           <input
             id="threshold-slider"
@@ -78,7 +80,7 @@ export function Duplicates() {
         </div>
 
         <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>
-          Aucun doublon detecte avec ce seuil.
+          {t('dup_none')}
         </p>
       </div>
     );
@@ -88,16 +90,16 @@ export function Duplicates() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-          Detection de doublons
+          {t('dup_title')}
           <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
-            ({totalGroups} groupes)
+            ({t('dup_groups').replace('{count}', String(totalGroups))})
           </span>
         </h2>
       </div>
 
       <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
         <label htmlFor="threshold-slider" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-          Seuil de similarite :
+          {t('dup_threshold')}
         </label>
         <input
           id="threshold-slider"
@@ -161,7 +163,7 @@ export function Duplicates() {
                   e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
-                Ignorer
+                {t('dup_ignore')}
               </button>
             </div>
 
@@ -241,7 +243,7 @@ export function Duplicates() {
                       e.currentTarget.style.backgroundColor = 'var(--accent-primary)';
                     }}
                   >
-                    Garder
+                    {t('dup_keep')}
                   </button>
                 </div>
               ))}

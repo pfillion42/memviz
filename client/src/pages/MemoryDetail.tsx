@@ -4,6 +4,7 @@ import { useMemory, useMemoryGraph } from '../hooks/useMemory';
 import { useUpdateMemory, useDeleteMemory } from '../hooks/useMutations';
 import { TagBadge } from '../components/TagBadge';
 import { QualityVoter } from '../components/QualityVoter';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const btnBase: React.CSSProperties = {
   padding: '6px 14px',
@@ -31,6 +32,7 @@ export function MemoryDetail() {
   const graphQuery = useMemoryGraph(hash || '');
   const updateMutation = useUpdateMemory(hash || '');
   const deleteMutation = useDeleteMemory();
+  const { t } = useLanguage();
 
   // Auto-increment acces au montage (fire-and-forget)
   useEffect(() => {
@@ -48,11 +50,11 @@ export function MemoryDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (memoryQuery.isLoading) {
-    return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
+    return <p style={{ color: 'var(--text-muted)' }}>{t('loading')}</p>;
   }
 
   if (memoryQuery.isError || !memoryQuery.data) {
-    return <p style={{ color: 'var(--error)' }}>Memoire non trouvee ou erreur de chargement.</p>;
+    return <p style={{ color: 'var(--error)' }}>{t('md_not_found')}</p>;
   }
 
   const m = memoryQuery.data;
@@ -101,7 +103,7 @@ export function MemoryDetail() {
   return (
     <div>
       <Link to="/memories" style={{ color: 'var(--accent-primary-hover)', textDecoration: 'none', fontSize: '13px' }}>
-        &larr; Retour a la liste
+        {t('md_back')}
       </Link>
 
       <div style={{
@@ -118,7 +120,7 @@ export function MemoryDetail() {
               value={editType}
               onChange={e => setEditType(e.target.value)}
               placeholder="Type"
-              aria-label="Type de memoire"
+              aria-label={t('md_aria_memory_type')}
               style={{ ...inputStyle, width: '120px' }}
             />
           ) : (
@@ -140,29 +142,29 @@ export function MemoryDetail() {
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
             {editing ? (
               <>
-                <button onClick={saveEdit} disabled={updateMutation.isPending} aria-label="Sauvegarder"
+                <button onClick={saveEdit} disabled={updateMutation.isPending} aria-label={t('save')}
                   style={{ ...btnBase, background: 'var(--accent-gradient)', color: 'white', border: 'none' }}>
-                  {updateMutation.isPending ? 'Sauvegarde...' : 'Sauvegarder'}
+                  {updateMutation.isPending ? t('saving') : t('save')}
                 </button>
-                <button onClick={cancelEdit} aria-label="Annuler"
+                <button onClick={cancelEdit} aria-label={t('cancel')}
                   style={{ ...btnBase, backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}>
-                  Annuler
+                  {t('cancel')}
                 </button>
               </>
             ) : (
               <>
-                <button onClick={startEdit} aria-label="Modifier"
+                <button onClick={startEdit} aria-label={t('edit')}
                   style={{ ...btnBase, backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--border-default)' }}>
-                  Modifier
+                  {t('edit')}
                 </button>
-                <button onClick={handleDelete} disabled={deleteMutation.isPending} aria-label={confirmDelete ? 'Confirmer suppression' : 'Supprimer'}
+                <button onClick={handleDelete} disabled={deleteMutation.isPending} aria-label={confirmDelete ? t('md_confirm_delete') : t('delete')}
                   style={{
                     ...btnBase,
                     backgroundColor: confirmDelete ? 'var(--error)' : 'transparent',
                     color: confirmDelete ? 'white' : 'var(--error)',
                     border: confirmDelete ? 'none' : '1px solid var(--error)',
                   }}>
-                  {confirmDelete ? 'Confirmer suppression' : 'Supprimer'}
+                  {confirmDelete ? t('md_confirm_delete') : t('delete')}
                 </button>
               </>
             )}
@@ -174,7 +176,7 @@ export function MemoryDetail() {
           <textarea
             value={editContent}
             onChange={e => setEditContent(e.target.value)}
-            aria-label="Contenu de la memoire"
+            aria-label={t('md_aria_memory_content')}
             rows={6}
             style={{
               width: '100%',
@@ -209,7 +211,7 @@ export function MemoryDetail() {
           {editing ? (
             <div>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Tags (separes par virgule) :
+                {t('md_tags_label')}
               </label>
               <input
                 value={editTags}
@@ -228,7 +230,7 @@ export function MemoryDetail() {
         </div>
 
         {updateMutation.isError && (
-          <p style={{ color: 'var(--error)', marginTop: '8px', fontSize: '13px' }}>Erreur lors de la sauvegarde.</p>
+          <p style={{ color: 'var(--error)', marginTop: '8px', fontSize: '13px' }}>{t('md_error_save')}</p>
         )}
 
         {/* Metadata grid */}
@@ -245,20 +247,20 @@ export function MemoryDetail() {
           border: '1px solid var(--border-subtle)',
         }}>
           <div>
-            <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cree le</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('md_created')}</span>
             <div style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>{new Date(m.created_at_iso).toLocaleString('fr-CA')}</div>
           </div>
           <div>
-            <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Modifie le</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('md_modified')}</span>
             <div style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>{new Date(m.updated_at_iso).toLocaleString('fr-CA')}</div>
           </div>
           <div>
-            <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hash</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('md_hash')}</span>
             <div style={{ color: 'var(--text-secondary)', marginTop: '2px', fontFamily: 'monospace', fontSize: '12px' }}>{m.content_hash}</div>
           </div>
           {meta?.access_count != null && (
             <div>
-              <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acces</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('md_accesses')}</span>
               <div style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>{String(meta.access_count)}</div>
             </div>
           )}
@@ -287,7 +289,7 @@ export function MemoryDetail() {
         {/* Graph associations */}
         {graphQuery.data && graphQuery.data.data.length > 0 && (
           <div style={{ marginTop: '24px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--text-primary)' }}>Associations</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--text-primary)' }}>{t('md_associations')}</h3>
             <div style={{
               borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border-subtle)',
@@ -296,9 +298,9 @@ export function MemoryDetail() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-default)', backgroundColor: 'var(--bg-base)' }}>
-                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hash lie</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Similarite</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('md_linked_hash')}</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('md_similarity')}</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('type')}</th>
                   </tr>
                 </thead>
                 <tbody>

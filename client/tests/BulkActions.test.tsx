@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { MemoryList } from '../src/pages/MemoryList';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 const MOCK_RESPONSE = {
   data: [
@@ -44,7 +45,9 @@ function createWrapper() {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>{children}</MemoryRouter>
+        <LanguageProvider>
+          <MemoryRouter>{children}</MemoryRouter>
+        </LanguageProvider>
       </QueryClientProvider>
     );
   };
@@ -79,7 +82,7 @@ describe('BulkActions', () => {
     render(<MemoryList />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      const headerCheckbox = screen.getByLabelText(/selectionner tout/i);
+      const headerCheckbox = screen.getByLabelText(/select all/i);
       expect(headerCheckbox).toBeDefined();
     });
   });
@@ -125,7 +128,7 @@ describe('BulkActions', () => {
     });
 
     // La barre ne doit pas etre visible au debut
-    expect(screen.queryByText(/selectionnee/i)).toBeNull();
+    expect(screen.queryByText(/selected/i)).toBeNull();
 
     // Selectionner une memoire
     const checkboxes = screen.getAllByRole('checkbox');
@@ -134,7 +137,7 @@ describe('BulkActions', () => {
 
     // La barre doit apparaitre
     await waitFor(() => {
-      expect(screen.getByText(/1 memoire selectionnee/i)).toBeDefined();
+      expect(screen.getByText(/1 memory selected/i)).toBeDefined();
     });
   });
 
@@ -159,7 +162,7 @@ describe('BulkActions', () => {
 
     // Le compteur doit afficher 2
     await waitFor(() => {
-      expect(screen.getByText(/2 memoires selectionnees/i)).toBeDefined();
+      expect(screen.getByText(/2 memories selected/i)).toBeDefined();
     });
   });
 
@@ -185,10 +188,10 @@ describe('BulkActions', () => {
 
     // Cliquer sur le bouton Supprimer
     await waitFor(() => {
-      expect(screen.getByText(/supprimer/i)).toBeDefined();
+      expect(screen.getByText(/delete/i)).toBeDefined();
     });
 
-    const deleteButton = screen.getByText(/supprimer/i);
+    const deleteButton = screen.getByText(/delete/i);
     await user.click(deleteButton);
 
     // window.confirm doit avoir ete appele
@@ -228,15 +231,15 @@ describe('BulkActions', () => {
 
     // Cliquer sur le bouton Supprimer
     await waitFor(() => {
-      expect(screen.getByText(/supprimer/i)).toBeDefined();
+      expect(screen.getByText(/delete/i)).toBeDefined();
     });
 
-    const deleteButton = screen.getByText(/supprimer/i);
+    const deleteButton = screen.getByText(/delete/i);
     await user.click(deleteButton);
 
     // La barre d'actions doit disparaitre apres la suppression
     await waitFor(() => {
-      expect(screen.queryByText(/selectionnee/i)).toBeNull();
+      expect(screen.queryByText(/selected/i)).toBeNull();
     });
   });
 });

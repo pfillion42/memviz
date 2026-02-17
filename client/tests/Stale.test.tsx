@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { Stale } from '../src/pages/Stale';
 
 const MOCK_STALE = {
@@ -74,9 +75,11 @@ function renderStale(mockData?: typeof MOCK_STALE) {
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <Stale />
-      </MemoryRouter>
+      <LanguageProvider>
+        <MemoryRouter>
+          <Stale />
+        </MemoryRouter>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }
@@ -89,7 +92,7 @@ describe('Stale', () => {
   it('affiche le titre "Memoires obsoletes"', async () => {
     renderStale();
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Memoires obsoletes/i })).toBeDefined();
+      expect(screen.getByRole('heading', { name: /Stale memories/i })).toBeDefined();
     });
   });
 
@@ -108,7 +111,7 @@ describe('Stale', () => {
     renderStale(MOCK_EMPTY_STALE);
 
     await waitFor(() => {
-      expect(screen.getByText(/Aucune memoire obsolete trouvee/i)).toBeDefined();
+      expect(screen.getByText(/No stale memories found/i)).toBeDefined();
     });
   });
 
@@ -116,7 +119,7 @@ describe('Stale', () => {
     renderStale();
 
     await waitFor(() => {
-      expect(screen.getByText(/2 memoires obsoletes/i)).toBeDefined();
+      expect(screen.getByText(/2 stale memories/i)).toBeDefined();
     });
   });
 
@@ -127,7 +130,7 @@ describe('Stale', () => {
       expect(screen.getByText(/Memoire tres ancienne/i)).toBeDefined();
     });
 
-    const slider = screen.getByLabelText(/Age minimum/i) as HTMLInputElement;
+    const slider = screen.getByLabelText(/Minimum age/i) as HTMLInputElement;
     expect(slider).toBeDefined();
 
     // Modifier la valeur du slider via fireEvent (React onChange)

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useClusters } from '../hooks/useClusters';
 import { ScatterPlot } from '../components/ScatterPlot';
 import type { ProjectionPoint } from '../types';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const CLUSTER_COLORS = [
   '#3b82f6', '#f59e0b', '#22c55e', '#a78bfa', '#f43f5e',
@@ -10,6 +11,7 @@ const CLUSTER_COLORS = [
 ];
 
 export function ClusterView() {
+  const { t } = useLanguage();
   const [threshold, setThreshold] = useState(0.6);
   const [minSize, setMinSize] = useState(2);
   const { data, isLoading, isError } = useClusters(threshold, minSize);
@@ -46,11 +48,11 @@ export function ClusterView() {
   }, [data]);
 
   if (isLoading) {
-    return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
+    return <p style={{ color: 'var(--text-muted)' }}>{t('loading')}</p>;
   }
 
   if (isError) {
-    return <p style={{ color: 'var(--error)' }}>Erreur lors du chargement des clusters.</p>;
+    return <p style={{ color: 'var(--error)' }}>{t('cl_error')}</p>;
   }
 
   const clusters = data?.clusters ?? [];
@@ -60,10 +62,10 @@ export function ClusterView() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-          Clusters semantiques
+          {t('cl_title')}
         </h2>
         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-          {totalClusters} clusters
+          {t('cl_count').replace('{count}', String(totalClusters))}
         </span>
       </div>
 
@@ -80,7 +82,7 @@ export function ClusterView() {
         flexWrap: 'wrap',
       }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          Seuil (threshold)
+          {t('cl_threshold')}
           <input
             type="range"
             min="0.3"
@@ -88,14 +90,14 @@ export function ClusterView() {
             step="0.05"
             value={threshold}
             onChange={e => setThreshold(parseFloat(e.target.value))}
-            aria-label="Seuil"
+            aria-label={t('cl_aria_threshold')}
             style={{ width: '100px' }}
           />
           <span style={{ fontSize: '12px', color: 'var(--text-muted)', minWidth: '32px' }}>{threshold.toFixed(2)}</span>
         </label>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          Taille min (min_size)
+          {t('cl_min_size')}
           <input
             type="range"
             min="2"
@@ -103,7 +105,7 @@ export function ClusterView() {
             step="1"
             value={minSize}
             onChange={e => setMinSize(parseInt(e.target.value))}
-            aria-label="Taille minimale"
+            aria-label={t('cl_aria_min_size')}
             style={{ width: '100px' }}
           />
           <span style={{ fontSize: '12px', color: 'var(--text-muted)', minWidth: '24px' }}>{minSize}</span>
@@ -113,7 +115,7 @@ export function ClusterView() {
       {/* Layout : ScatterPlot + liste */}
       {clusters.length === 0 ? (
         <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>
-          Aucun cluster trouve avec ces parametres.
+          {t('cl_empty')}
         </p>
       ) : (
         <div style={{ display: 'flex', gap: '16px' }}>
@@ -155,11 +157,11 @@ export function ClusterView() {
                     </span>
                   </div>
                   <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    {cluster.size} memoires
+                    {t('cl_memories').replace('{count}', String(cluster.size))}
                   </span>
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                  Similarite : {cluster.avg_similarity.toFixed(2)}
+                  {t('cl_similarity')} {cluster.avg_similarity.toFixed(2)}
                 </div>
               </div>
             ))}

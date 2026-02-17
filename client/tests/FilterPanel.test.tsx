@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FilterPanel } from '../src/components/FilterPanel';
 import type { MemoryFilters } from '../src/types';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 const MOCK_STATS = {
   total: 42,
@@ -28,7 +29,9 @@ function createWrapper() {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        {children}
+        <LanguageProvider>
+          {children}
+        </LanguageProvider>
       </QueryClientProvider>
     );
   };
@@ -46,7 +49,7 @@ describe('FilterPanel', () => {
 
     render(<FilterPanel filters={filters} onApply={onApply} />, { wrapper: createWrapper() });
 
-    expect(screen.getByText('Filtres')).toBeDefined();
+    expect(screen.getByText('Filters')).toBeDefined();
   });
 
   it('affiche le panneau quand on clique sur le bouton', async () => {
@@ -71,7 +74,7 @@ describe('FilterPanel', () => {
 
     render(<FilterPanel filters={filters} onApply={onApply} />, { wrapper: createWrapper() });
 
-    const toggleBtn = screen.getByText('Filtres');
+    const toggleBtn = screen.getByText('Filters');
     fireEvent.click(toggleBtn);
 
     // Le panneau doit apparaitre
@@ -101,7 +104,7 @@ describe('FilterPanel', () => {
 
     render(<FilterPanel filters={filters} onApply={onApply} />, { wrapper: createWrapper() });
 
-    const toggleBtn = screen.getByText('Filtres');
+    const toggleBtn = screen.getByText('Filters');
     fireEvent.click(toggleBtn);
 
     const typeSelect = screen.getByLabelText('Type') as HTMLSelectElement;
@@ -133,7 +136,7 @@ describe('FilterPanel', () => {
 
     render(<FilterPanel filters={filters} onApply={onApply} />, { wrapper: createWrapper() });
 
-    const toggleBtn = screen.getByText('Filtres');
+    const toggleBtn = screen.getByText('Filters');
     fireEvent.click(toggleBtn);
 
     // Attendre que les donnees soient chargees
@@ -145,7 +148,7 @@ describe('FilterPanel', () => {
     const typeSelect = screen.getByLabelText('Type') as HTMLSelectElement;
     fireEvent.change(typeSelect, { target: { value: 'note' } });
 
-    const applyBtn = screen.getByText('Appliquer');
+    const applyBtn = screen.getByText('Apply');
     fireEvent.click(applyBtn);
 
     expect(onApply).toHaveBeenCalledWith({ type: 'note' });
@@ -173,10 +176,10 @@ describe('FilterPanel', () => {
 
     render(<FilterPanel filters={filters} onApply={onApply} />, { wrapper: createWrapper() });
 
-    const toggleBtn = screen.getByText('Filtres');
+    const toggleBtn = screen.getByText('Filters');
     fireEvent.click(toggleBtn);
 
-    const resetBtn = screen.getByText('Reinitialiser');
+    const resetBtn = screen.getByText('Reset');
     fireEvent.click(resetBtn);
 
     expect(onApply).toHaveBeenCalledWith({});

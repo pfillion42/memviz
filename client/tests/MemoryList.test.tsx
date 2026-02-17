@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { MemoryList } from '../src/pages/MemoryList';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 const MOCK_RESPONSE = {
   data: [
@@ -43,7 +44,9 @@ function createWrapper() {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>{children}</MemoryRouter>
+        <LanguageProvider>
+          <MemoryRouter>{children}</MemoryRouter>
+        </LanguageProvider>
       </QueryClientProvider>
     );
   };
@@ -59,7 +62,7 @@ describe('MemoryList', () => {
       () => new Promise(() => {}) // jamais resolu
     );
     render(<MemoryList />, { wrapper: createWrapper() });
-    expect(screen.getByText(/chargement/i)).toBeDefined();
+    expect(screen.getByText(/loading/i)).toBeDefined();
   });
 
   it('affiche la liste des memoires apres chargement', async () => {
@@ -127,7 +130,7 @@ describe('MemoryList', () => {
     render(<MemoryList />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText(/erreur/i)).toBeDefined();
+      expect(screen.getByText(/error/i)).toBeDefined();
     });
   });
 
@@ -140,7 +143,7 @@ describe('MemoryList', () => {
     render(<MemoryList />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Filtres')).toBeDefined();
+      expect(screen.getByText('Filters')).toBeDefined();
     });
   });
 });

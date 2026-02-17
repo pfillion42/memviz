@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useTags } from '../hooks/useStats';
 import { useStats } from '../hooks/useStats';
 import { useRenameTag, useDeleteTag, useMergeTags } from '../hooks/useTagActions';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export function Tags() {
+  const { t } = useLanguage();
   const { data: tagsData, isLoading: tagsLoading } = useTags();
   const { data: statsData, isLoading: statsLoading } = useStats();
   const renameTag = useRenameTag();
@@ -15,7 +17,7 @@ export function Tags() {
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
   if (tagsLoading || statsLoading) {
-    return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
+    return <p style={{ color: 'var(--text-muted)' }}>{t('loading')}</p>;
   }
 
   const tags = tagsData?.data ?? [];
@@ -42,7 +44,7 @@ export function Tags() {
   };
 
   const handleDelete = (tag: string) => {
-    if (window.confirm(`Supprimer le tag "${tag}" ?`)) {
+    if (window.confirm(t('tags_confirm_delete').replace('{tag}', tag))) {
       deleteTag.mutate(tag);
     }
   };
@@ -60,7 +62,7 @@ export function Tags() {
   };
 
   const handleMerge = () => {
-    const target = window.prompt('Nom du tag cible :');
+    const target = window.prompt(t('tags_merge_prompt'));
     if (target) {
       mergeTags.mutate({ sources: Array.from(selectedTags), target });
       setSelectedTags(new Set());
@@ -71,10 +73,10 @@ export function Tags() {
     return (
       <div>
         <h2 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-          Gestion des tags
+          {t('tags_title')}
         </h2>
         <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>
-          Aucun tag trouve.
+          {t('tags_empty')}
         </p>
       </div>
     );
@@ -84,9 +86,9 @@ export function Tags() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-          Gestion des tags
+          {t('tags_title')}
           <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
-            ({sortedTags.length} tags)
+            ({t('tags_count').replace('{count}', String(sortedTags.length))})
           </span>
         </h2>
         {selectedTags.size >= 2 && (
@@ -106,7 +108,7 @@ export function Tags() {
             onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--accent-primary-hover)'; }}
             onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--accent-primary)'; }}
           >
-            Fusionner
+            {t('tags_merge')}
           </button>
         )}
       </div>
@@ -122,8 +124,8 @@ export function Tags() {
             <tr style={{ borderBottom: '1px solid var(--border-default)' }}>
               <th style={{ padding: '12px 16px', width: '40px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}></th>
               <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tag</th>
-              <th style={{ padding: '12px 16px', width: '80px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Utilisations</th>
-              <th style={{ padding: '12px 16px', width: '120px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
+              <th style={{ padding: '12px 16px', width: '80px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('tags_col_uses')}</th>
+              <th style={{ padding: '12px 16px', width: '120px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('tags_col_actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -204,7 +206,7 @@ export function Tags() {
                       onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
                       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
-                      Renommer
+                      {t('tags_rename')}
                     </button>
                     <button
                       onClick={() => handleDelete(tag)}

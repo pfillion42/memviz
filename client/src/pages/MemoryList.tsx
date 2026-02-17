@@ -10,6 +10,7 @@ import { TagBadge } from '../components/TagBadge';
 import { Pagination } from '../components/Pagination';
 import { BulkActionBar } from '../components/BulkActionBar';
 import { QualityVoter } from '../components/QualityVoter';
+import { useLanguage } from '../i18n/LanguageContext';
 import type { Memory, MemoryFilters } from '../types';
 
 const PAGE_SIZE = 20;
@@ -32,6 +33,7 @@ const toggleBtn = (active: boolean): React.CSSProperties => ({
 });
 
 export function MemoryList() {
+  const { t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const [offset, setOffset] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -117,11 +119,11 @@ export function MemoryList() {
   }, []);
 
   if (activeQuery.isLoading) {
-    return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
+    return <p style={{ color: 'var(--text-muted)' }}>{t('loading')}</p>;
   }
 
   if (activeQuery.isError) {
-    return <p style={{ color: 'var(--error)' }}>Erreur lors du chargement des memoires.</p>;
+    return <p style={{ color: 'var(--error)' }}>{t('ml_error')}</p>;
   }
 
   const memories: MemoryWithSimilarity[] = activeQuery.data?.data ?? [];
@@ -158,7 +160,7 @@ export function MemoryList() {
           <SearchBar
             value={searchQuery}
             onChange={handleSearch}
-            placeholder={searchMode === 'vector' ? 'Recherche semantique...' : 'Rechercher dans les memoires...'}
+            placeholder={searchMode === 'vector' ? t('ml_search_semantic') : t('ml_search_text')}
           />
         </div>
         <div style={{
@@ -170,17 +172,17 @@ export function MemoryList() {
         }}>
           <button
             onClick={() => setSearchMode('fts')}
-            aria-label="Recherche texte"
+            aria-label={t('ml_aria_text_search')}
             style={toggleBtn(searchMode === 'fts')}
           >
-            Texte
+            {t('ml_mode_text')}
           </button>
           <button
             onClick={() => setSearchMode('vector')}
-            aria-label="Recherche vectorielle"
+            aria-label={t('ml_aria_vector_search')}
             style={toggleBtn(searchMode === 'vector')}
           >
-            Vectoriel
+            {t('ml_mode_vector')}
           </button>
         </div>
       </div>
@@ -197,7 +199,7 @@ export function MemoryList() {
               color: 'white',
               borderRadius: 'var(--radius-full)',
             }}>
-              {activeFiltersCount} filtre{activeFiltersCount > 1 ? 's' : ''} actif{activeFiltersCount > 1 ? 's' : ''}
+              {(activeFiltersCount > 1 ? t('ml_filter_count_other') : t('ml_filter_count_one')).replace('{count}', String(activeFiltersCount))}
             </span>
           )}
         </div>
@@ -205,7 +207,7 @@ export function MemoryList() {
 
       {memories.length === 0 ? (
         <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>
-          Aucune memoire trouvee.
+          {t('ml_no_results')}
         </p>
       ) : (
         <div style={{
@@ -222,16 +224,16 @@ export function MemoryList() {
                     type="checkbox"
                     checked={selectedHashes.size === memories.length && memories.length > 0}
                     onChange={toggleSelectAll}
-                    aria-label="Selectionner tout"
+                    aria-label={t('ml_select_all')}
                     style={{ cursor: 'pointer' }}
                   />
                 </th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contenu</th>
-                <th style={{ padding: '12px 16px', width: '90px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tags</th>
-                <th style={{ padding: '12px 16px', width: '110px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Qualite</th>
-                {showSimilarity && <th style={{ padding: '12px 16px', width: '80px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</th>}
-                <th style={{ padding: '12px 16px', width: '140px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('ml_col_content')}</th>
+                <th style={{ padding: '12px 16px', width: '90px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('type')}</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('tags')}</th>
+                <th style={{ padding: '12px 16px', width: '110px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('ml_col_quality')}</th>
+                {showSimilarity && <th style={{ padding: '12px 16px', width: '80px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('ml_col_score')}</th>}
+                <th style={{ padding: '12px 16px', width: '140px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('ml_col_date')}</th>
               </tr>
             </thead>
             <tbody>

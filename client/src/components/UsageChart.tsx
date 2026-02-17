@@ -1,4 +1,5 @@
 import type { UsageDataPoint } from '../types';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface UsageChartProps {
   creations: UsageDataPoint[];
@@ -76,6 +77,7 @@ function buildMonotonePath(points: Point[]): string {
 }
 
 export function UsageChart({ creations, accesses }: UsageChartProps) {
+  const { t } = useLanguage();
   const allDates = Array.from(new Set([
     ...creations.map(c => c.date),
     ...accesses.map(a => a.date),
@@ -95,7 +97,7 @@ export function UsageChart({ creations, accesses }: UsageChartProps) {
   if (visibleDates.length === 0) {
     return (
       <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-        Aucune donnee disponible.
+        {t('usage_empty')}
       </p>
     );
   }
@@ -159,14 +161,14 @@ export function UsageChart({ creations, accesses }: UsageChartProps) {
             width: '20px', height: '3px', borderRadius: '2px',
             backgroundColor: 'var(--accent-primary)',
           }} />
-          <span>Creations</span>
+          <span>{t('usage_creations')}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{
             width: '20px', height: '3px', borderRadius: '2px',
             backgroundColor: 'var(--info)',
           }} />
-          <span>Acces</span>
+          <span>{t('usage_accesses')}</span>
         </div>
       </div>
 
@@ -244,7 +246,7 @@ export function UsageChart({ creations, accesses }: UsageChartProps) {
                   cx={getX(i)} cy={getY(cc)} r="3.5"
                   fill="var(--accent-primary)" stroke="var(--bg-surface)" strokeWidth="1.5"
                 >
-                  <title>{`${date} — Creations: ${cc}`}</title>
+                  <title>{t('usage_tooltip_creations').replace('{date}', date).replace('{count}', String(cc))}</title>
                 </circle>
               )}
               {ac > 0 && (
@@ -253,7 +255,7 @@ export function UsageChart({ creations, accesses }: UsageChartProps) {
                   cx={getX(i)} cy={getY(ac)} r="3.5"
                   fill="var(--info)" stroke="var(--bg-surface)" strokeWidth="1.5"
                 >
-                  <title>{`${date} — Acces: ${ac}`}</title>
+                  <title>{t('usage_tooltip_accesses').replace('{date}', date).replace('{count}', String(ac))}</title>
                 </circle>
               )}
             </g>

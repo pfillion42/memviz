@@ -1,22 +1,24 @@
 import { Link } from 'react-router-dom';
 import { useTimeline } from '../hooks/useTimeline';
 import { TagBadge } from '../components/TagBadge';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export function Timeline() {
+  const { t } = useLanguage();
   const { data, isLoading, isError } = useTimeline();
 
   if (isLoading) {
-    return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
+    return <p style={{ color: 'var(--text-muted)' }}>{t('loading')}</p>;
   }
 
   if (isError) {
-    return <p style={{ color: 'var(--error)' }}>Erreur lors du chargement de la timeline.</p>;
+    return <p style={{ color: 'var(--error)' }}>{t('timeline_error')}</p>;
   }
 
   if (!data || data.groups.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-        <p>Aucune memoire dans la timeline.</p>
+        <p>{t('timeline_empty')}</p>
       </div>
     );
   }
@@ -25,10 +27,10 @@ export function Timeline() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-          Timeline
+          {t('timeline_title')}
         </h2>
         <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-          {data.total} memoire{data.total > 1 ? 's' : ''}
+          {(data.total > 1 ? t('timeline_count_other') : t('timeline_count_one')).replace('{count}', String(data.total))}
         </span>
       </div>
 

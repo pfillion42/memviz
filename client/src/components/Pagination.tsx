@@ -1,3 +1,5 @@
+import { useLanguage } from '../i18n/LanguageContext';
+
 interface PaginationProps {
   total: number;
   limit: number;
@@ -24,6 +26,7 @@ const btnDisabled: React.CSSProperties = {
 };
 
 export function Pagination({ total, limit, offset, onPageChange }: PaginationProps) {
+  const { t } = useLanguage();
   const currentPage = Math.floor(offset / limit) + 1;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
@@ -38,21 +41,21 @@ export function Pagination({ total, limit, offset, onPageChange }: PaginationPro
       <button
         disabled={currentPage <= 1}
         onClick={() => onPageChange(Math.max(0, offset - limit))}
-        aria-label="Page precedente"
+        aria-label={t('page_aria_prev')}
         style={currentPage <= 1 ? btnDisabled : btnStyle}
       >
-        Precedent
+        {t('page_previous')}
       </button>
       <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-        Page <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{currentPage}</span> / {totalPages}
+        {t('page_label')} <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{currentPage}</span> / {totalPages}
       </span>
       <button
         disabled={currentPage >= totalPages}
         onClick={() => onPageChange(offset + limit)}
-        aria-label="Page suivante"
+        aria-label={t('page_aria_next')}
         style={currentPage >= totalPages ? btnDisabled : btnStyle}
       >
-        Suivant
+        {t('page_next')}
       </button>
     </nav>
   );

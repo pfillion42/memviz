@@ -10,6 +10,7 @@ vi.mock('react-force-graph-2d', () => ({
 }));
 
 import { GraphView } from '../src/pages/GraphView';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 const MOCK_GRAPH = {
   nodes: [
@@ -32,7 +33,9 @@ function createWrapper() {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>{children}</MemoryRouter>
+        <LanguageProvider>
+          <MemoryRouter>{children}</MemoryRouter>
+        </LanguageProvider>
       </QueryClientProvider>
     );
   };
@@ -48,7 +51,7 @@ describe('GraphView', () => {
       () => new Promise(() => {})
     );
     render(<GraphView />, { wrapper: createWrapper() });
-    expect(screen.getByText(/chargement/i)).toBeDefined();
+    expect(screen.getByText(/loading/i)).toBeDefined();
   });
 
   it('affiche le graphe avec les noeuds', async () => {
@@ -74,8 +77,8 @@ describe('GraphView', () => {
     render(<GraphView />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText(/3 noeuds/i)).toBeDefined();
-      expect(screen.getByText(/2 liens/i)).toBeDefined();
+      expect(screen.getByText(/3 nodes/i)).toBeDefined();
+      expect(screen.getByText(/2 links/i)).toBeDefined();
     });
   });
 
@@ -88,7 +91,7 @@ describe('GraphView', () => {
     render(<GraphView />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText(/aucune association/i)).toBeDefined();
+      expect(screen.getByText(/no associations/i)).toBeDefined();
     });
   });
 
@@ -102,7 +105,7 @@ describe('GraphView', () => {
     render(<GraphView />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText(/erreur/i)).toBeDefined();
+      expect(screen.getByText(/error/i)).toBeDefined();
     });
   });
 });

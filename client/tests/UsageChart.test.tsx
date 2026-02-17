@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { UsageChart } from '../src/components/UsageChart';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 const MOCK_CREATIONS = [
   { date: '2026-02-13', count: 1 },
@@ -14,29 +15,29 @@ const MOCK_ACCESSES = [
 
 describe('UsageChart', () => {
   it('affiche la ligne de creation', () => {
-    render(<UsageChart creations={MOCK_CREATIONS} accesses={MOCK_ACCESSES} />);
+    render(<LanguageProvider><UsageChart creations={MOCK_CREATIONS} accesses={MOCK_ACCESSES} /></LanguageProvider>);
     const line = screen.getByTestId('line-creation');
     expect(line).toBeDefined();
     expect(line.getAttribute('d')).toBeTruthy();
   });
 
   it('affiche la ligne d\'acces', () => {
-    render(<UsageChart creations={MOCK_CREATIONS} accesses={MOCK_ACCESSES} />);
+    render(<LanguageProvider><UsageChart creations={MOCK_CREATIONS} accesses={MOCK_ACCESSES} /></LanguageProvider>);
     const line = screen.getByTestId('line-access');
     expect(line).toBeDefined();
     expect(line.getAttribute('d')).toBeTruthy();
   });
 
   it('affiche la legende avec les 2 series', () => {
-    render(<UsageChart creations={MOCK_CREATIONS} accesses={MOCK_ACCESSES} />);
+    render(<LanguageProvider><UsageChart creations={MOCK_CREATIONS} accesses={MOCK_ACCESSES} /></LanguageProvider>);
     const legend = screen.getByTestId('usage-legend');
     expect(legend).toBeDefined();
     expect(screen.getByText('Creations')).toBeDefined();
-    expect(screen.getByText('Acces')).toBeDefined();
+    expect(screen.getByText('Accesses')).toBeDefined();
   });
 
   it('gere des donnees vides', () => {
-    render(<UsageChart creations={[]} accesses={[]} />);
-    expect(screen.getByText(/aucune donnee/i)).toBeDefined();
+    render(<LanguageProvider><UsageChart creations={[]} accesses={[]} /></LanguageProvider>);
+    expect(screen.getByText(/no data/i)).toBeDefined();
   });
 });

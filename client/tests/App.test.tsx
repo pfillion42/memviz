@@ -73,20 +73,20 @@ describe('App', () => {
 
   it('affiche la navigation', () => {
     render(<App />);
-    expect(screen.getByText('Memoires')).toBeDefined();
+    expect(screen.getByText('Memories')).toBeDefined();
     expect(screen.getByText('Dashboard')).toBeDefined();
     expect(screen.getByText('Timeline')).toBeDefined();
-    expect(screen.getByText('Doublons')).toBeDefined();
+    expect(screen.getByText('Duplicates')).toBeDefined();
     expect(screen.getByText('Tags')).toBeDefined();
-    expect(screen.getByText('Obsoletes')).toBeDefined();
+    expect(screen.getByText('Stale')).toBeDefined();
     expect(screen.getByText('Clusters')).toBeDefined();
-    expect(screen.getByText('Graphe')).toBeDefined();
+    expect(screen.getByText('Graph')).toBeDefined();
   });
 
   it('charge le Dashboard par defaut', async () => {
     render(<App />);
     await waitFor(() => {
-      expect(screen.getByText('Memoires totales')).toBeDefined();
+      expect(screen.getByText('Total memories')).toBeDefined();
     });
   });
 });

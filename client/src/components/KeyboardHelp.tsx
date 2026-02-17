@@ -1,20 +1,22 @@
 import { useEffect } from 'react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface KeyboardHelpProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const shortcuts = [
-  { key: 'j', description: 'Ligne suivante' },
-  { key: 'k', description: 'Ligne precedente' },
-  { key: '/', description: 'Focus recherche' },
-  { key: 'Enter', description: 'Ouvrir le detail' },
-  { key: 'Escape', description: 'Fermer / deselectionner' },
-  { key: '?', description: 'Afficher cette aide' },
-];
-
 export function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
+  const { t } = useLanguage();
+
+  const shortcuts = [
+    { key: 'j', description: t('kb_next_line') },
+    { key: 'k', description: t('kb_prev_line') },
+    { key: '/', description: t('kb_focus_search') },
+    { key: 'Enter', description: t('kb_open_detail') },
+    { key: 'Escape', description: t('kb_close') },
+    { key: '?', description: t('kb_show_help') },
+  ];
   useEffect(() => {
     if (!isOpen) return;
 
@@ -62,7 +64,7 @@ export function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
           fontWeight: 600,
           color: 'var(--text-primary)',
         }}>
-          Raccourcis clavier
+          {t('kb_title')}
         </h3>
 
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>

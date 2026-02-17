@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { MemoryDetail } from '../src/pages/MemoryDetail';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 const MOCK_MEMORY = {
   id: 1,
@@ -41,11 +42,13 @@ function renderWithRouter(hash: string) {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/memories/${hash}`]}>
-        <Routes>
-          <Route path="/memories/:hash" element={<MemoryDetail />} />
-        </Routes>
-      </MemoryRouter>
+      <LanguageProvider>
+        <MemoryRouter initialEntries={[`/memories/${hash}`]}>
+          <Routes>
+            <Route path="/memories/:hash" element={<MemoryDetail />} />
+          </Routes>
+        </MemoryRouter>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }
@@ -60,7 +63,7 @@ describe('MemoryDetail', () => {
       () => new Promise(() => {})
     );
     renderWithRouter('hash_aaa');
-    expect(screen.getByText(/chargement/i)).toBeDefined();
+    expect(screen.getByText(/loading/i)).toBeDefined();
   });
 
   it('affiche le contenu complet de la memoire', async () => {
@@ -190,7 +193,7 @@ describe('MemoryDetail', () => {
     renderWithRouter('hash_inexistant');
 
     await waitFor(() => {
-      expect(screen.getByText(/non trouvee|erreur/i)).toBeDefined();
+      expect(screen.getByText(/not found|error/i)).toBeDefined();
     });
   });
 });

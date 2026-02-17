@@ -1,3 +1,5 @@
+import { useLanguage } from '../i18n/LanguageContext';
+
 interface BulkActionBarProps {
   selectedHashes: string[];
   onDelete: () => void;
@@ -13,11 +15,12 @@ export function BulkActionBar({
   onChangeType,
   onClear,
 }: BulkActionBarProps) {
+  const { t } = useLanguage();
   const count = selectedHashes.length;
 
   const handleDelete = () => {
     const confirmed = window.confirm(
-      `Voulez-vous vraiment supprimer ${count} memoire${count > 1 ? 's' : ''} ?`
+      t('bulk_confirm_delete').replace('{count}', String(count))
     );
     if (confirmed) {
       onDelete();
@@ -25,14 +28,14 @@ export function BulkActionBar({
   };
 
   const handleAddTag = () => {
-    const tag = window.prompt('Entrez le tag a ajouter :');
+    const tag = window.prompt(t('bulk_prompt_tag'));
     if (tag && tag.trim()) {
       onAddTag(tag.trim());
     }
   };
 
   const handleChangeType = () => {
-    const type = window.prompt('Entrez le nouveau type :');
+    const type = window.prompt(t('bulk_prompt_type'));
     if (type && type.trim()) {
       onChangeType(type.trim());
     }
@@ -56,7 +59,7 @@ export function BulkActionBar({
       }}
     >
       <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-        {count} memoire{count > 1 ? 's' : ''} selectionnee{count > 1 ? 's' : ''}
+        {(count > 1 ? t('bulk_selected_other') : t('bulk_selected_one')).replace('{count}', String(count))}
       </span>
 
       <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
@@ -74,7 +77,7 @@ export function BulkActionBar({
             transition: 'all var(--transition-fast)',
           }}
         >
-          Supprimer
+          {t('delete')}
         </button>
 
         <button
@@ -91,7 +94,7 @@ export function BulkActionBar({
             transition: 'all var(--transition-fast)',
           }}
         >
-          Ajouter tag
+          {t('bulk_add_tag')}
         </button>
 
         <button
@@ -108,7 +111,7 @@ export function BulkActionBar({
             transition: 'all var(--transition-fast)',
           }}
         >
-          Changer type
+          {t('bulk_change_type')}
         </button>
 
         <button
@@ -125,7 +128,7 @@ export function BulkActionBar({
             transition: 'all var(--transition-fast)',
           }}
         >
-          Deselectionner tout
+          {t('bulk_deselect')}
         </button>
       </div>
     </div>

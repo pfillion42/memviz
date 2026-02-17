@@ -2,6 +2,7 @@ import { useGraph } from '../hooks/useGraph';
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ForceGraph2D from 'react-force-graph-2d';
+import { useLanguage } from '../i18n/LanguageContext';
 
 
 const TYPE_COLORS: Record<string, string> = {
@@ -16,6 +17,7 @@ const TYPE_COLORS: Record<string, string> = {
 const DEFAULT_COLOR = '#5c5c66';
 
 export function GraphView() {
+  const { t } = useLanguage();
   const { data, isLoading, isError } = useGraph();
   const navigate = useNavigate();
 
@@ -27,11 +29,11 @@ export function GraphView() {
   }, [navigate]);
 
   if (isLoading) {
-    return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
+    return <p style={{ color: 'var(--text-muted)' }}>{t('loading')}</p>;
   }
 
   if (isError) {
-    return <p style={{ color: 'var(--error)' }}>Erreur lors du chargement du graphe.</p>;
+    return <p style={{ color: 'var(--error)' }}>{t('graph_error')}</p>;
   }
 
   const nodes = data?.nodes ?? [];
@@ -39,7 +41,7 @@ export function GraphView() {
 
   if (nodes.length === 0) {
     return <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>
-      Aucune association trouvee dans le graphe.
+      {t('graph_empty')}
     </p>;
   }
 
@@ -63,10 +65,10 @@ export function GraphView() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-          Graphe d'associations
+          {t('graph_title')}
         </h2>
         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-          {nodes.length} noeuds, {links.length} liens
+          {t('graph_stats').replace('{nodes}', String(nodes.length)).replace('{links}', String(links.length))}
         </span>
       </div>
 

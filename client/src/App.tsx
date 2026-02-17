@@ -15,6 +15,7 @@ import { Logo } from './components/Logo';
 import { KeyboardHelp } from './components/KeyboardHelp';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTheme } from './hooks/useTheme';
+import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,7 @@ const activeStyle: React.CSSProperties = {
 function AppContent() {
   const [showHelp, setShowHelp] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { language, setLanguage, t } = useLanguage();
   useKeyboardShortcuts({ onToggleHelp: () => setShowHelp(v => !v) });
 
   return (
@@ -74,39 +76,69 @@ function AppContent() {
 
         <nav style={{ display: 'flex', gap: '2px', marginLeft: '8px' }}>
           <NavLink to="/" end style={({ isActive }) => isActive ? activeStyle : navStyle}>
-            Dashboard
+            {t('nav_dashboard')}
           </NavLink>
           <NavLink to="/timeline" style={({ isActive }) => isActive ? activeStyle : navStyle}>
-            Timeline
+            {t('nav_timeline')}
           </NavLink>
           <NavLink to="/memories" style={({ isActive }) => isActive ? activeStyle : navStyle}>
-            Memoires
+            {t('nav_memories')}
           </NavLink>
           <NavLink to="/duplicates" style={({ isActive }) => isActive ? activeStyle : navStyle}>
-            Doublons
+            {t('nav_duplicates')}
           </NavLink>
           <NavLink to="/tags" style={({ isActive }) => isActive ? activeStyle : navStyle}>
-            Tags
+            {t('nav_tags')}
           </NavLink>
           <NavLink to="/stale" style={({ isActive }) => isActive ? activeStyle : navStyle}>
-            Obsoletes
+            {t('nav_stale')}
           </NavLink>
           <NavLink to="/embeddings" style={({ isActive }) => isActive ? activeStyle : navStyle}>
-            Embeddings
+            {t('nav_embeddings')}
           </NavLink>
           <NavLink to="/clusters" style={({ isActive }) => isActive ? activeStyle : navStyle}>
-            Clusters
+            {t('nav_clusters')}
           </NavLink>
           <NavLink to="/graph" style={({ isActive }) => isActive ? activeStyle : navStyle}>
-            Graphe
+            {t('nav_graph')}
           </NavLink>
         </nav>
+
+        <button
+          onClick={() => setLanguage(language === 'en' ? 'fr' : 'en')}
+          aria-label="Toggle language"
+          style={{
+            marginLeft: 'auto',
+            background: 'transparent',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            fontSize: '13px',
+            fontWeight: 600,
+            padding: '6px 10px',
+            transition: 'all var(--transition-fast)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: '36px',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+            e.currentTarget.style.borderColor = 'var(--border-accent)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.borderColor = 'var(--border-default)';
+          }}
+        >
+          {language === 'en' ? 'FR' : 'EN'}
+        </button>
 
         <button
           onClick={toggleTheme}
           aria-label="Toggle theme"
           style={{
-            marginLeft: 'auto',
             background: 'transparent',
             border: '1px solid var(--border-default)',
             borderRadius: 'var(--radius-sm)',
@@ -160,7 +192,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AppContent />
+        <LanguageProvider>
+          <AppContent />
+        </LanguageProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );

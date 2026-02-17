@@ -4,6 +4,7 @@ import { useUsageStats } from '../hooks/useUsageStats';
 import { useQueryClient } from '@tanstack/react-query';
 import { UsageChart } from '../components/UsageChart';
 import type { UsagePeriod } from '../types';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const cardStyle = (borderColor: string): React.CSSProperties => ({
   padding: '24px',
@@ -23,6 +24,7 @@ const statValue = (color: string): React.CSSProperties => ({
 });
 
 export function Dashboard() {
+  const { t } = useLanguage();
   const statsQuery = useStats();
   const queryClient = useQueryClient();
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -31,11 +33,11 @@ export function Dashboard() {
   const usageQuery = useUsageStats(usagePeriod);
 
   if (statsQuery.isLoading) {
-    return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
+    return <p style={{ color: 'var(--text-muted)' }}>{t('loading')}</p>;
   }
 
   if (statsQuery.isError || !statsQuery.data) {
-    return <p style={{ color: 'var(--error)' }}>Erreur lors du chargement des statistiques.</p>;
+    return <p style={{ color: 'var(--error)' }}>{t('dash_error_stats')}</p>;
   }
 
   const { total, byType, byTag, accessStats } = statsQuery.data;
@@ -53,7 +55,7 @@ export function Dashboard() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      setImportStatus('Erreur lors de l\'export.');
+      setImportStatus(t('dash_error_export'));
     }
   };
 
@@ -74,11 +76,11 @@ export function Dashboard() {
       if (!res.ok) throw new Error('Erreur import');
 
       const result = await res.json();
-      setImportStatus(`Import termine : ${result.imported} importees, ${result.skipped} ignorees.`);
+      setImportStatus(t('dash_import_result').replace('{imported}', String(result.imported)).replace('{skipped}', String(result.skipped)));
       queryClient.invalidateQueries({ queryKey: ['stats'] });
       queryClient.invalidateQueries({ queryKey: ['memories'] });
     } catch {
-      setImportStatus('Erreur lors de l\'import. Verifiez le format du fichier.');
+      setImportStatus(t('dash_error_import'));
     }
 
     if (fileInputRef.current) {
@@ -100,28 +102,28 @@ export function Dashboard() {
       }}>
         <div style={cardStyle('var(--border-default)')}>
           <div style={statValue('var(--accent-primary-hover)')}>{total}</div>
-          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>Memoires totales</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>{t('dash_total_memories')}</div>
         </div>
 
         <div style={cardStyle('var(--border-default)')}>
           <div style={statValue('var(--success)')}>
             {Object.keys(byType).length}
           </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>Types distincts</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>{t('dash_distinct_types')}</div>
         </div>
 
         <div style={cardStyle('var(--border-default)')}>
           <div style={statValue('var(--warning)')}>
             {Object.keys(byTag).length}
           </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>Tags uniques</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>{t('dash_unique_tags')}</div>
         </div>
 
         <div style={cardStyle('var(--border-default)')}>
           <div style={statValue('var(--info)')}>
             {safeAccessStats.totalAccesses}
           </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>Acces totaux</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '8px' }}>{t('dash_total_accesses')}</div>
         </div>
       </div>
 
@@ -135,7 +137,7 @@ export function Dashboard() {
           padding: '20px',
         }}>
           <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', color: 'var(--text-primary)' }}>
-            Repartition par type
+            {t('dash_type_distribution')}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {Object.entries(byType).map(([type, count]) => (
@@ -182,7 +184,7 @@ export function Dashboard() {
           padding: '20px',
         }}>
           <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', color: 'var(--text-primary)' }}>
-            Tags les plus utilises
+            {t('dash_top_tags')}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {sortedTags.slice(0, 10).map(([tag, count]) => (
@@ -229,7 +231,7 @@ export function Dashboard() {
           padding: '20px',
         }}>
           <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', color: 'var(--text-primary)' }}>
-            Memoires les plus consultees
+            {t('dash_top_accessed')}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {safeAccessStats.topAccessed.map((mem) => (
@@ -284,7 +286,7 @@ export function Dashboard() {
           marginBottom: '16px',
         }}>
           <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-            Statistiques d'utilisation
+            {t('dash_usage_stats')}
           </h3>
           <div style={{ display: 'flex', gap: '4px' }}>
             {(['day', 'week', 'month'] as UsagePeriod[]).map(p => (
@@ -303,16 +305,16 @@ export function Dashboard() {
                   color: usagePeriod === p ? 'white' : 'var(--text-secondary)',
                 }}
               >
-                {p === 'day' ? 'Jour' : p === 'week' ? 'Semaine' : 'Mois'}
+                {p === 'day' ? t('dash_period_day') : p === 'week' ? t('dash_period_week') : t('dash_period_month')}
               </button>
             ))}
           </div>
         </div>
         {usageQuery.isLoading && (
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Chargement...</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{t('loading')}</p>
         )}
         {usageQuery.isError && (
-          <p style={{ color: 'var(--error)', fontSize: '13px' }}>Erreur lors du chargement.</p>
+          <p style={{ color: 'var(--error)', fontSize: '13px' }}>{t('dash_error_loading')}</p>
         )}
         {usageQuery.data && (
           <UsageChart
@@ -331,7 +333,7 @@ export function Dashboard() {
         border: '1px solid var(--border-default)',
       }}>
         <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', color: 'var(--text-primary)' }}>
-          Import / Export
+          {t('dash_import_export')}
         </h3>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <button
@@ -349,7 +351,7 @@ export function Dashboard() {
               boxShadow: 'var(--shadow-sm)',
             }}
           >
-            Exporter (JSON)
+            {t('dash_export_json')}
           </button>
           <label style={{
             padding: '9px 18px',
@@ -362,7 +364,7 @@ export function Dashboard() {
             cursor: 'pointer',
             transition: 'all var(--transition-fast)',
           }}>
-            Importer (JSON)
+            {t('dash_import_json')}
             <input
               ref={fileInputRef}
               type="file"

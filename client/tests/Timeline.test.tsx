@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { Timeline } from '../src/pages/Timeline';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 const MOCK_TIMELINE = {
   groups: [
@@ -84,9 +85,11 @@ function renderTimeline(mockData?: typeof MOCK_TIMELINE) {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/timeline']}>
-        <Timeline />
-      </MemoryRouter>
+      <LanguageProvider>
+        <MemoryRouter initialEntries={['/timeline']}>
+          <Timeline />
+        </MemoryRouter>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }
@@ -105,18 +108,20 @@ describe('Timeline', () => {
     );
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
-          <Timeline />
-        </MemoryRouter>
+        <LanguageProvider>
+          <MemoryRouter>
+            <Timeline />
+          </MemoryRouter>
+        </LanguageProvider>
       </QueryClientProvider>
     );
-    expect(screen.getByText(/chargement/i)).toBeDefined();
+    expect(screen.getByText(/loading/i)).toBeDefined();
   });
 
   it('affiche un etat vide quand il n\'y a pas de memoires', async () => {
     renderTimeline(MOCK_EMPTY_TIMELINE);
     await waitFor(() => {
-      expect(screen.getByText(/aucune memoire/i)).toBeDefined();
+      expect(screen.getByText(/no memories/i)).toBeDefined();
     });
   });
 
@@ -167,7 +172,7 @@ describe('Timeline', () => {
   it('affiche le nombre total de memoires', async () => {
     renderTimeline();
     await waitFor(() => {
-      expect(screen.getByText(/3 memoire/i)).toBeDefined();
+      expect(screen.getByText(/3 memor/i)).toBeDefined();
     });
   });
 });

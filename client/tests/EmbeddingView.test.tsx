@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { EmbeddingView } from '../src/pages/EmbeddingView';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 const MOCK_PROJECTION = {
   points: [
@@ -58,9 +59,11 @@ function renderEmbeddingView(mockData?: typeof MOCK_PROJECTION) {
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <EmbeddingView />
-      </MemoryRouter>
+      <LanguageProvider>
+        <MemoryRouter>
+          <EmbeddingView />
+        </MemoryRouter>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }
@@ -108,14 +111,14 @@ describe('EmbeddingView', () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText(/Chargement/i)).toBeDefined();
+    expect(screen.getByText(/Loading/i)).toBeDefined();
   });
 
   it('affiche le titre "Espace vectoriel"', async () => {
     renderEmbeddingView();
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Espace vectoriel/i })).toBeDefined();
+      expect(screen.getByRole('heading', { name: /Vector space/i })).toBeDefined();
     });
   });
 
@@ -149,7 +152,7 @@ describe('EmbeddingView', () => {
     renderEmbeddingViewError();
 
     await waitFor(() => {
-      expect(screen.getByText(/Erreur/i)).toBeDefined();
+      expect(screen.getByText(/Error/i)).toBeDefined();
     });
   });
 
@@ -157,7 +160,7 @@ describe('EmbeddingView', () => {
     renderEmbeddingView(MOCK_EMPTY);
 
     await waitFor(() => {
-      expect(screen.getByText(/Aucun point/i)).toBeDefined();
+      expect(screen.getByText(/No points/i)).toBeDefined();
     });
   });
 
@@ -168,7 +171,7 @@ describe('EmbeddingView', () => {
       expect(screen.getByTestId('scatter-plot')).toBeDefined();
     });
 
-    const slider = screen.getByLabelText(/Voisins/i) as HTMLInputElement;
+    const slider = screen.getByLabelText(/Neighbors/i) as HTMLInputElement;
     expect(slider).toBeDefined();
 
     fireEvent.change(slider, { target: { value: '25' } });

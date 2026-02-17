@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { Duplicates } from '../src/pages/Duplicates';
 
 function renderWithQueryClient(ui: React.ReactElement) {
@@ -14,7 +15,9 @@ function renderWithQueryClient(ui: React.ReactElement) {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      {ui}
+      <LanguageProvider>
+        {ui}
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }
@@ -30,7 +33,7 @@ describe('Duplicates', () => {
     );
 
     renderWithQueryClient(<Duplicates />);
-    expect(screen.getByText('Chargement...')).toBeDefined();
+    expect(screen.getByText('Loading...')).toBeDefined();
   });
 
   it('affiche "Aucun doublon" quand pas de groupes', async () => {
@@ -42,7 +45,7 @@ describe('Duplicates', () => {
     renderWithQueryClient(<Duplicates />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Aucun doublon/)).toBeDefined();
+      expect(screen.getByText(/No duplicates/)).toBeDefined();
     });
   });
 

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjection } from '../hooks/useProjection';
 import { ScatterPlot } from '../components/ScatterPlot';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const TYPE_COLORS: Record<string, string> = {
   note: '#3b82f6',
@@ -13,6 +14,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export function EmbeddingView() {
+  const { t } = useLanguage();
   const [nNeighbors, setNNeighbors] = useState(15);
   const [minDist, setMinDist] = useState(0.1);
   const { data, isLoading, isError } = useProjection(nNeighbors, minDist);
@@ -23,11 +25,11 @@ export function EmbeddingView() {
   }, [navigate]);
 
   if (isLoading) {
-    return <p style={{ color: 'var(--text-muted)' }}>Chargement...</p>;
+    return <p style={{ color: 'var(--text-muted)' }}>{t('loading')}</p>;
   }
 
   if (isError) {
-    return <p style={{ color: 'var(--error)' }}>Erreur lors du chargement de la projection.</p>;
+    return <p style={{ color: 'var(--error)' }}>{t('emb_error')}</p>;
   }
 
   const points = data?.points ?? [];
@@ -36,10 +38,10 @@ export function EmbeddingView() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-          Espace vectoriel
+          {t('emb_title')}
         </h2>
         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-          {points.length} points
+          {t('emb_points').replace('{count}', String(points.length))}
         </span>
       </div>
 
@@ -56,21 +58,21 @@ export function EmbeddingView() {
         flexWrap: 'wrap',
       }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          Voisins (n_neighbors)
+          {t('emb_neighbors')}
           <input
             type="range"
             min="2"
             max="50"
             value={nNeighbors}
             onChange={e => setNNeighbors(parseInt(e.target.value))}
-            aria-label="Voisins"
+            aria-label={t('emb_aria_neighbors')}
             style={{ width: '100px' }}
           />
           <span style={{ fontSize: '12px', color: 'var(--text-muted)', minWidth: '24px' }}>{nNeighbors}</span>
         </label>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          Distance min (min_dist)
+          {t('emb_min_dist')}
           <input
             type="range"
             min="0.01"
@@ -78,7 +80,7 @@ export function EmbeddingView() {
             step="0.01"
             value={minDist}
             onChange={e => setMinDist(parseFloat(e.target.value))}
-            aria-label="Distance minimale"
+            aria-label={t('emb_aria_min_dist')}
             style={{ width: '100px' }}
           />
           <span style={{ fontSize: '12px', color: 'var(--text-muted)', minWidth: '32px' }}>{minDist.toFixed(2)}</span>
@@ -105,7 +107,7 @@ export function EmbeddingView() {
       {/* Scatter plot ou message vide */}
       {points.length === 0 ? (
         <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>
-          Aucun point a afficher.
+          {t('emb_empty')}
         </p>
       ) : (
         <ScatterPlot

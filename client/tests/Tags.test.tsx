@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { Tags } from '../src/pages/Tags';
 
 function renderWithProviders(ui: React.ReactElement) {
@@ -14,9 +15,11 @@ function renderWithProviders(ui: React.ReactElement) {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        {ui}
-      </MemoryRouter>
+      <LanguageProvider>
+        <MemoryRouter>
+          {ui}
+        </MemoryRouter>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }
@@ -54,7 +57,7 @@ describe('Tags', () => {
   it('affiche "Chargement..." pendant le loading', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}));
     renderWithProviders(<Tags />);
-    expect(screen.getByText('Chargement...')).toBeDefined();
+    expect(screen.getByText('Loading...')).toBeDefined();
   });
 
   it('affiche la liste des tags avec leur compteur', async () => {
@@ -232,14 +235,14 @@ describe('Tags', () => {
     });
 
     // Aucun bouton fusionner au depart
-    expect(screen.queryByText('Fusionner')).toBeNull();
+    expect(screen.queryByText('Merge')).toBeNull();
 
     const checkboxes = screen.getAllByRole('checkbox');
     await user.click(checkboxes[0]);
     await user.click(checkboxes[1]);
 
     await waitFor(() => {
-      expect(screen.getByText('Fusionner')).toBeDefined();
+      expect(screen.getByText('Merge')).toBeDefined();
     });
   });
 
@@ -258,7 +261,7 @@ describe('Tags', () => {
     await user.click(checkboxes[0]); // test
     await user.click(checkboxes[1]); // projet
 
-    const mergeButton = screen.getByText('Fusionner');
+    const mergeButton = screen.getByText('Merge');
     await user.click(mergeButton);
 
     await waitFor(() => {
@@ -282,7 +285,7 @@ describe('Tags', () => {
     renderWithProviders(<Tags />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Aucun tag/)).toBeDefined();
+      expect(screen.getByText(/No tags/)).toBeDefined();
     });
   });
 });

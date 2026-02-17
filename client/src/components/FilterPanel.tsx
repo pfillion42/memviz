@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useStats, useTags } from '../hooks/useStats';
 import type { MemoryFilters } from '../types';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface FilterPanelProps {
   filters: MemoryFilters;
@@ -8,6 +9,7 @@ interface FilterPanelProps {
 }
 
 export function FilterPanel({ filters, onApply }: FilterPanelProps) {
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [localFilters, setLocalFilters] = useState<MemoryFilters>(filters);
 
@@ -150,14 +152,14 @@ export function FilterPanel({ filters, onApply }: FilterPanelProps) {
   return (
     <div>
       <button onClick={() => setIsOpen(!isOpen)} style={toggleBtnStyle}>
-        Filtres
+        {t('filter_button')}
       </button>
 
       {isOpen && (
         <div style={panelStyle}>
           <div style={fieldStyle}>
             <label htmlFor="filter-type" style={labelStyle}>
-              Type
+              {t('type')}
             </label>
             <select
               id="filter-type"
@@ -166,7 +168,7 @@ export function FilterPanel({ filters, onApply }: FilterPanelProps) {
               aria-label="Type"
               style={inputStyle}
             >
-              <option value="">Tous les types</option>
+              <option value="">{t('filter_all_types')}</option>
               {types.map(type => (
                 <option key={type} value={type}>
                   {type}
@@ -177,7 +179,7 @@ export function FilterPanel({ filters, onApply }: FilterPanelProps) {
 
           <div style={fieldStyle}>
             <label style={labelStyle} aria-label="Tags">
-              Tags
+              {t('tags')}
             </label>
             <div style={checkboxContainerStyle}>
               {availableTags.map(tag => {
@@ -207,7 +209,7 @@ export function FilterPanel({ filters, onApply }: FilterPanelProps) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
             <div>
               <label htmlFor="filter-from" style={labelStyle}>
-                Date debut
+                {t('filter_date_from')}
               </label>
               <input
                 id="filter-from"
@@ -219,7 +221,7 @@ export function FilterPanel({ filters, onApply }: FilterPanelProps) {
             </div>
             <div>
               <label htmlFor="filter-to" style={labelStyle}>
-                Date fin
+                {t('filter_date_to')}
               </label>
               <input
                 id="filter-to"
@@ -234,7 +236,7 @@ export function FilterPanel({ filters, onApply }: FilterPanelProps) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
             <div>
               <label htmlFor="filter-quality-min" style={labelStyle}>
-                Qualite min ({localFilters.quality_min ?? 0})
+                {t('filter_quality_min').replace('{value}', String(localFilters.quality_min ?? 0))}
               </label>
               <input
                 id="filter-quality-min"
@@ -249,7 +251,7 @@ export function FilterPanel({ filters, onApply }: FilterPanelProps) {
             </div>
             <div>
               <label htmlFor="filter-quality-max" style={labelStyle}>
-                Qualite max ({localFilters.quality_max ?? 1})
+                {t('filter_quality_max').replace('{value}', String(localFilters.quality_max ?? 1))}
               </label>
               <input
                 id="filter-quality-max"
@@ -266,10 +268,10 @@ export function FilterPanel({ filters, onApply }: FilterPanelProps) {
 
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={handleApply} style={applyBtnStyle}>
-              Appliquer
+              {t('filter_apply')}
             </button>
             <button onClick={handleReset} style={resetBtnStyle}>
-              Reinitialiser
+              {t('filter_reset')}
             </button>
           </div>
         </div>

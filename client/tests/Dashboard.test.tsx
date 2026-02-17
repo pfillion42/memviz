@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { Dashboard } from '../src/pages/Dashboard';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 const MOCK_STATS = {
   total: 42,
@@ -55,7 +56,9 @@ function createWrapper() {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>{children}</MemoryRouter>
+        <LanguageProvider>
+          <MemoryRouter>{children}</MemoryRouter>
+        </LanguageProvider>
       </QueryClientProvider>
     );
   };
@@ -71,7 +74,7 @@ describe('Dashboard', () => {
       () => new Promise(() => {})
     );
     render(<Dashboard />, { wrapper: createWrapper() });
-    expect(screen.getByText(/chargement/i)).toBeDefined();
+    expect(screen.getByText(/loading/i)).toBeDefined();
   });
 
   it('affiche le total de memoires', async () => {
@@ -109,8 +112,8 @@ describe('Dashboard', () => {
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText(/exporter/i)).toBeDefined();
-      expect(screen.getByText(/importer/i)).toBeDefined();
+      expect(screen.getByText(/export \(json\)/i)).toBeDefined();
+      expect(screen.getByText(/import \(json\)/i)).toBeDefined();
     });
   });
 
@@ -120,7 +123,7 @@ describe('Dashboard', () => {
 
     await waitFor(() => {
       expect(screen.getByText('57')).toBeDefined();
-      expect(screen.getByText(/acces totaux/i)).toBeDefined();
+      expect(screen.getByText(/total accesses/i)).toBeDefined();
     });
   });
 
@@ -129,7 +132,7 @@ describe('Dashboard', () => {
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Memoires les plus consultees')).toBeDefined();
+      expect(screen.getByText('Most accessed memories')).toBeDefined();
     });
   });
 
@@ -157,7 +160,7 @@ describe('Dashboard', () => {
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText(/acces totaux/i)).toBeDefined();
+      expect(screen.getByText(/total accesses/i)).toBeDefined();
     });
   });
 
@@ -166,7 +169,7 @@ describe('Dashboard', () => {
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText(/statistiques d'utilisation/i)).toBeDefined();
+      expect(screen.getByText(/usage statistics/i)).toBeDefined();
     });
   });
 
@@ -175,9 +178,9 @@ describe('Dashboard', () => {
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Jour')).toBeDefined();
-      expect(screen.getByText('Semaine')).toBeDefined();
-      expect(screen.getByText('Mois')).toBeDefined();
+      expect(screen.getByText('Day')).toBeDefined();
+      expect(screen.getByText('Week')).toBeDefined();
+      expect(screen.getByText('Month')).toBeDefined();
     });
   });
 
@@ -186,10 +189,10 @@ describe('Dashboard', () => {
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Semaine')).toBeDefined();
+      expect(screen.getByText('Week')).toBeDefined();
     });
 
-    fireEvent.click(screen.getByText('Semaine'));
+    fireEvent.click(screen.getByText('Week'));
 
     await waitFor(() => {
       const calls = fetchSpy.mock.calls.map(c => {
@@ -210,7 +213,7 @@ describe('Dashboard', () => {
     render(<Dashboard />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText(/erreur/i)).toBeDefined();
+      expect(screen.getByText(/error/i)).toBeDefined();
     });
   });
 });
