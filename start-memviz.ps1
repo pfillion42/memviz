@@ -1,5 +1,9 @@
-# memviz - Demarrage des serveurs
+# memviz - Demarrage des serveurs avec icone systray
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
 $ErrorActionPreference = "SilentlyContinue"
+$Host.UI.RawUI.WindowTitle = "memviz"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Test-Port($port) {
@@ -8,25 +12,34 @@ function Test-Port($port) {
     return $null -ne $conn
 }
 
-# --- Serveur API (port 3001) ---
-if (Test-Port 3001) {
-    Write-Host "[memviz] Serveur API deja en cours sur le port 3001" -ForegroundColor Cyan
-} else {
-    Write-Host "[memviz] Demarrage du serveur API (port 3001)..." -ForegroundColor Yellow
-    Start-Process -FilePath "cmd.exe" -ArgumentList "/c cd /d `"$root\server`" && npm run dev" -WindowStyle Minimized
+function Stop-MemvizServices {
+    foreach ($port in 3001, 5173) {
+        $connections = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
+        foreach ($conn in $connections) {
+            $procId = $conn.OwningProcess
+            $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
+            if ($proc) {
+                Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
 }
 
-# --- Frontend (port 5173) ---
-if (Test-Port 5173) {
-    Write-Host "[memviz] Frontend deja en cours sur le port 5173" -ForegroundColor Cyan
-} else {
-    Write-Host "[memviz] Demarrage du frontend (port 5173)..." -ForegroundColor Yellow
-    Start-Process -FilePath "cmd.exe" -ArgumentList "/c cd /d `"$root\client`" && npm run dev" -WindowStyle Minimized
+# --- Demarrage serveur API (port 3001) ---
+if (-not (Test-Port 3001)) {
+    Start-Process -FilePath "cmd.exe" `
+        -ArgumentList "/c cd /d `"$root\server`" && npm run dev" `
+        -WindowStyle Hidden
 }
 
-# --- Attente des serveurs (max 60 sec chacun) ---
-Write-Host "[memviz] Attente du demarrage..." -ForegroundColor Yellow
+# --- Demarrage frontend (port 5173) ---
+if (-not (Test-Port 5173)) {
+    Start-Process -FilePath "cmd.exe" `
+        -ArgumentList "/c cd /d `"$root\client`" && npm run dev" `
+        -WindowStyle Hidden
+}
 
+# --- Attente du serveur API (max 60 sec) ---
 $timeout = 60
 $elapsed = 0
 while ($elapsed -lt $timeout) {
@@ -37,12 +50,8 @@ while ($elapsed -lt $timeout) {
     Start-Sleep -Seconds 2
     $elapsed += 2
 }
-if ($elapsed -ge $timeout) {
-    Write-Host "[memviz] ERREUR: Le serveur API n'a pas demarre apres $timeout secondes" -ForegroundColor Red
-} else {
-    Write-Host "[memviz] Serveur API pret." -ForegroundColor Green
-}
 
+# --- Attente du frontend (max 60 sec) ---
 $elapsed = 0
 while ($elapsed -lt $timeout) {
     try {
@@ -52,20 +61,47 @@ while ($elapsed -lt $timeout) {
     Start-Sleep -Seconds 2
     $elapsed += 2
 }
-if ($elapsed -ge $timeout) {
-    Write-Host "[memviz] ERREUR: Le frontend n'a pas demarre apres $timeout secondes" -ForegroundColor Red
-} else {
-    Write-Host "[memviz] Frontend pret." -ForegroundColor Green
-}
 
 # --- Ouvrir le navigateur ---
-Write-Host "[memviz] Ouverture du navigateur..." -ForegroundColor Yellow
 Start-Process "http://localhost:5173/"
 
-Write-Host ""
-Write-Host "============================================" -ForegroundColor Green
-Write-Host "  memviz demarre sur http://localhost:5173" -ForegroundColor Green
-Write-Host "  API sur http://127.0.0.1:3001" -ForegroundColor Green
-Write-Host "" -ForegroundColor Green
-Write-Host "  Pour arreter : stop-memviz.bat" -ForegroundColor Green
-Write-Host "============================================" -ForegroundColor Green
+# --- Icone systray ---
+$notifyIcon = New-Object System.Windows.Forms.NotifyIcon
+$notifyIcon.Icon = New-Object System.Drawing.Icon("$root\memviz.ico")
+$notifyIcon.Text = "memviz - http://localhost:5173"
+$notifyIcon.Visible = $true
+
+# Menu contextuel (clic droit)
+$menu = New-Object System.Windows.Forms.ContextMenuStrip
+
+$menuOpen = $menu.Items.Add("Ouvrir memviz")
+$menuOpen.Add_Click({
+    Start-Process "http://localhost:5173/"
+})
+
+$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
+
+$menuStop = $menu.Items.Add("Arreter memviz")
+$menuStop.Image = [System.Drawing.SystemIcons]::Error.ToBitmap()
+$menuStop.Add_Click({
+    Stop-MemvizServices
+    $notifyIcon.Visible = $false
+    $notifyIcon.Dispose()
+    [System.Windows.Forms.Application]::Exit()
+})
+
+$notifyIcon.ContextMenuStrip = $menu
+
+# Double-clic ouvre le navigateur
+$notifyIcon.Add_DoubleClick({
+    Start-Process "http://localhost:5173/"
+})
+
+# Notification de demarrage
+$notifyIcon.BalloonTipTitle = "memviz"
+$notifyIcon.BalloonTipText = "Application demarree - http://localhost:5173"
+$notifyIcon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+$notifyIcon.ShowBalloonTip(3000)
+
+# Boucle de messages Windows (garde le script en vie pour le systray)
+[System.Windows.Forms.Application]::Run()
