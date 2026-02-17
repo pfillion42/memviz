@@ -22,7 +22,7 @@
 
 I'm a sysadmin by trade, not a developer. My coding background is some C++ from many years ago. I built memviz entirely through **vibe coding** with Claude Code as a way to test AI-assisted development workflows. The whole thing was built in about two days.
 
-It works, it has 339 tests, and I use it daily. But the code reflects the fact that an AI wrote most of it while I steered. If you spot rough edges, odd patterns, or things that could be done better, I'd genuinely appreciate the feedback. PRs and issues are very welcome.
+It works, it has 349 tests, and I use it daily. But the code reflects the fact that an AI wrote most of it while I steered. If you spot rough edges, odd patterns, or things that could be done better, I'd genuinely appreciate the feedback. PRs and issues are very welcome.
 
 ---
 
@@ -41,6 +41,7 @@ It works, it has 339 tests, and I use it daily. But the code reflects the fact t
 - **Bulk operations** - Select multiple memories for batch delete, tag, or retype
 - **Import / Export** - JSON import and export of memories
 - **Dark / Light theme** - Toggle with system preference detection
+- **EN / FR language toggle** - Full interface translation with localStorage persistence
 - **Keyboard shortcuts** - `j`/`k` navigation, `/` search, `?` help, and more
 - **Security** - Helmet headers, rate limiting, optional API token, Zod validation, localhost-only binding
 
@@ -120,7 +121,7 @@ memviz/
 │   │   ├── components/  # 11 reusable components
 │   │   ├── hooks/       # Custom React Query hooks
 │   │   └── App.tsx
-│   └── tests/       # Vitest + Testing Library (126 tests)
+│   └── tests/       # Vitest + Testing Library (136 tests)
 └── .github/workflows/   # CI: lint, typecheck, test, build
 ```
 
@@ -140,7 +141,7 @@ cd server && npm run test:watch
 cd client && npm run test:watch
 ```
 
-339 tests total (213 server + 126 client).
+349 tests total (213 server + 136 client).
 
 ## Security
 
